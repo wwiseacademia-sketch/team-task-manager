@@ -2,209 +2,213 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 
-# --- CONFIGURATION ---
-ADMIN_USER = "Zaheer Abbas"
-MEMBERS = ["Muhammad Imran", "Mazhar Abbas", "Muhammad Ahmad"]
+# --- SETUP PAGE & CSS ---
+st.set_page_config(page_title="Write Wise Task Distributor", layout="wide", page_icon="📝")
 
-NEW_TASK_CYCLE = ["Muhammad Imran", "Mazhar Abbas", "Muhammad Ahmad", "Completed"]
-REVISION_CYCLE = ["Muhammad Ahmad", "Mazhar Abbas", "Muhammad Imran", "Completed"]
-
-# --- DATABASE SETUP ---
-if 'tasks' not in st.session_state:
-    st.session_state.tasks = []
-if 'task_id_counter' not in st.session_state:
-    st.session_state.task_id_counter = 101
-
-# --- FUNCTIONS ---
-def get_next_assignee(current_assignee, task_type):
-    cycle = NEW_TASK_CYCLE if task_type == "New Task" else REVISION_CYCLE
-    try:
-        idx = cycle.index(current_assignee)
-        if idx + 1 < len(cycle):
-            return cycle[idx + 1]
-    except ValueError:
-        return cycle[0]
-    return "Completed"
-
-def create_new_task(title, task_type, file_name):
-    first_assignee = NEW_TASK_CYCLE[0] if task_type == "New Task" else REVISION_CYCLE[0]
-    new_task = {
-        "ID": st.session_state.task_id_counter,
-        "Date": datetime.now().strftime("%Y-%m-%d %H:%M"),
-        "Title": title,
-        "Type": task_type,
-        "File": file_name,
-        "Current Assignee": first_assignee,
-        "Status": "Pending"
-    }
-    st.session_state.tasks.append(new_task)
-    st.session_state.task_id_counter += 1
-
-# --- MODERN UI STYLING ---
-st.set_page_config(page_title="TeamFlow", layout="wide", page_icon="🚀")
-
-# Custom CSS for "Arena" like look
+# Custom CSS to match the Screenshot Design
 st.markdown("""
     <style>
-    /* Global Styles */
-    .stApp {
-        background-color: #f4f6f9;
-    }
-    .main-header {
-        font-family: 'Helvetica Neue', sans-serif;
-        color: #1E293B;
-        font-weight: 700;
-    }
-    /* Card Style */
-    .css-1r6slb0 {
+    /* Main Background */
+    .stApp { background-color: #f4f7f6; }
+    
+    /* Card Design */
+    .css-card {
         background-color: white;
-        border-radius: 10px;
         padding: 20px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        border-radius: 15px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        margin-bottom: 20px;
     }
-    /* Button Styling */
+    
+    /* Headings */
+    h1 { color: #3b3bff; text-align: center; font-family: sans-serif; font-weight: 800; font-size: 2rem;}
+    .sub-head { text-align: center; color: #666; font-size: 1rem; margin-top: -10px; margin-bottom: 30px;}
+    
+    /* Assign Button */
     div.stButton > button {
-        background-color: #2563EB;
+        background-color: #4f46e5; /* Purple/Blue */
         color: white;
-        border-radius: 8px;
+        width: 100%;
+        border-radius: 10px;
+        padding: 10px;
+        font-weight: bold;
         border: none;
-        padding: 10px 24px;
-        font-weight: 600;
     }
-    div.stButton > button:hover {
-        background-color: #1D4ED8;
-    }
-    /* Success Message */
-    .success-box {
+    div.stButton > button:hover { background-color: #4338ca; }
+    
+    /* Next Assignee Box */
+    .next-assignee-box {
+        background-color: #f0f9ff;
+        border: 1px solid #bae6fd;
         padding: 15px;
-        background-color: #D1FAE5;
-        color: #065F46;
-        border-radius: 8px;
+        border-radius: 10px;
+        text-align: center;
+        margin-top: 10px;
         margin-bottom: 10px;
     }
+    .assignee-name {
+        color: #0284c7; /* Blue Text */
+        font-size: 1.2rem;
+        font-weight: bold;
+    }
+    
+    /* Badges */
+    .badge-new { background-color: #dcfce7; color: #166534; padding: 4px 8px; border-radius: 5px; font-size: 0.8rem; font-weight: bold;}
+    .badge-rev { background-color: #ffedd5; color: #9a3412; padding: 4px 8px; border-radius: 5px; font-size: 0.8rem; font-weight: bold;}
     </style>
 """, unsafe_allow_html=True)
 
-# --- SIDEBAR NAVIGATION ---
-st.sidebar.title("🚀 TeamFlow")
-st.sidebar.markdown("---")
-st.sidebar.subheader("👤 User Login")
-user_role = st.sidebar.radio("Select Role", ["Admin", "Team Member"])
+# --- CONFIGURATION ---
+NEW_TASK_ORDER = ["Muhammad Imran", "Mazhar Abbas", "Muhammad Ahmad"]
+REVISION_ORDER = ["Muhammad Ahmad", "Mazhar Abbas", "Muhammad Imran"]
 
-current_user = None
-if user_role == "Admin":
-    current_user = ADMIN_USER
-    st.sidebar.success(f"👨‍💼 Admin: {ADMIN_USER}")
-else:
-    current_user = st.sidebar.selectbox("Select Member", MEMBERS)
-    st.sidebar.info(f"👨‍💻 Member: {current_user}")
+# --- SESSION STATE (Database) ---
+if 'log' not in st.session_state:
+    st.session_state.log = []
 
-# --- MAIN DASHBOARD HEADER ---
-st.markdown(f"<h1 class='main-header'>Dashboard // {current_user}</h1>", unsafe_allow_html=True)
-st.markdown("---")
+# Track whose turn it is (Index 0, 1, or 2)
+if 'new_task_idx' not in st.session_state:
+    st.session_state.new_task_idx = 0 
+if 'rev_task_idx' not in st.session_state:
+    st.session_state.rev_task_idx = 0
 
-# ================= ADMIN DASHBOARD =================
-if current_user == ADMIN_USER:
-    
-    # Stats Row
-    col1, col2, col3 = st.columns(3)
-    total_tasks = len(st.session_state.tasks)
-    pending_tasks = len([t for t in st.session_state.tasks if t['Status'] != 'Completed'])
-    completed_tasks = total_tasks - pending_tasks
-    
-    col1.metric("Total Tasks", total_tasks)
-    col2.metric("In Progress", pending_tasks)
-    col3.metric("Completed", completed_tasks)
-    
-    st.markdown("### 🛠 Control Panel")
-    
-    tab_new, tab_edit, tab_view = st.tabs(["✨ New Task", "🔧 Fix Mistakes", "📋 All Records"])
-    
-    with tab_new:
-        with st.container():
-            st.write("Create a new workflow cycle.")
-            c1, c2 = st.columns([2, 1])
-            with c1:
-                t_title = st.text_input("Task Name")
-            with c2:
-                t_type = st.selectbox("Workflow Type", ["New Task", "Revision"])
-            
-            t_file = st.file_uploader("Attach File")
-            
-            if st.button("🚀 Launch Task"):
-                if t_title and t_file:
-                    create_new_task(t_title, t_type, t_file.name)
-                    st.success(f"Task initiated! Assigned to: **{NEW_TASK_CYCLE[0] if t_type == 'New Task' else REVISION_CYCLE[0]}**")
-                else:
-                    st.error("Please fill all details.")
+# --- HEADER ---
+st.markdown("<h1>📝 Write Wise Task Distributor</h1>", unsafe_allow_html=True)
+st.markdown("<div class='sub-head'>Admin/Generator: <span style='color:#4f46e5; font-weight:bold;'>Zaheer Abbas</span></div>", unsafe_allow_html=True)
 
-    with tab_edit:
-        st.info("Use this if you uploaded the wrong file. The task will remain with the current user.")
-        active_ids = [t['ID'] for t in st.session_state.tasks if t['Status'] != 'Completed']
-        
-        if active_ids:
-            sel_id = st.selectbox("Select Task ID", active_ids)
-            idx = next((i for i, item in enumerate(st.session_state.tasks) if item["ID"] == sel_id), None)
-            
-            if idx is not None:
-                task = st.session_state.tasks[idx]
-                st.markdown(f"**Task:** {task['Title']} | **Current File:** `{task['File']}`")
-                new_f = st.file_uploader("Upload Correct File")
-                if st.button("Update File"):
-                    if new_f:
-                        st.session_state.tasks[idx]['File'] = new_f.name
-                        st.success("File updated!")
-                        st.rerun()
-        else:
-            st.write("No active tasks to edit.")
+# --- LAYOUT (2 Columns) ---
+left_col, right_col = st.columns([1, 2.2])
 
-    with tab_view:
-        if st.session_state.tasks:
-            st.dataframe(pd.DataFrame(st.session_state.tasks), use_container_width=True)
-        else:
-            st.write("No data found.")
-
-# ================= MEMBER DASHBOARD =================
-else:
-    my_tasks = [t for t in st.session_state.tasks if t["Current Assignee"] == current_user and t["Status"] != "Completed"]
+# ================= LEFT COLUMN: CONTROLS =================
+with left_col:
+    # --- CARD 1: ASSIGN WORK ---
+    st.markdown('<div class="css-card">', unsafe_allow_html=True)
+    st.markdown("### 📤 Assign Work")
     
-    if not my_tasks:
-        st.markdown("""
-        <div style="text-align: center; padding: 50px; background: white; border-radius: 10px;">
-            <h2>🎉 All Caught Up!</h2>
-            <p>You have no pending tasks at the moment.</p>
-        </div>
-        """, unsafe_allow_html=True)
+    # 1. File Upload
+    uploaded_file = st.file_uploader("Upload File (Task/Revision)", label_visibility="collapsed")
+    if uploaded_file:
+        st.success(f"File selected: {uploaded_file.name}")
     else:
-        st.subheader("⚡ Your Action Items")
-        
-        for task in my_tasks:
-            # Card Layout
-            with st.container():
-                st.markdown(f"""
-                <div style="background-color: white; padding: 20px; border-radius: 12px; border-left: 5px solid #2563EB; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 20px;">
-                    <h3 style="margin:0; color: #1E293B;">{task['Title']}</h3>
-                    <p style="color: #64748B; font-size: 14px;">Task ID: #{task['ID']} | Type: <span style="background:#E0F2FE; color:#0284C7; padding:2px 8px; border-radius:4px;">{task['Type']}</span></p>
-                    <hr style="margin: 10px 0; border-top: 1px solid #F1F5F9;">
-                    <p><strong>📂 File to Process:</strong> {task['File']}</p>
-                    <p style="font-size: 12px; color: #94A3B8;">Received: {task['Date']}</p>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                next_person = get_next_assignee(current_user, task["Type"])
-                
-                col_btn, col_empty = st.columns([1, 4])
-                with col_btn:
-                    btn_text = "✅ Complete & Finish" if next_person == "Completed" else f"📤 Send to {next_person}"
-                    if st.button(btn_text, key=task['ID']):
-                        t_idx = st.session_state.tasks.index(task)
-                        if next_person == "Completed":
-                            st.session_state.tasks[t_idx]['Status'] = "Completed"
-                            st.session_state.tasks[t_idx]['Current Assignee'] = "Completed"
-                            st.balloons()
-                        else:
-                            st.session_state.tasks[t_idx]['Current Assignee'] = next_person
-                        st.rerun()
+        st.info("Click to upload file")
 
-st.sidebar.markdown("---")
-st.sidebar.caption("© 2024 Task Manager System")
+    # 2. Task Type
+    task_type = st.selectbox("Task Type", ["New Task", "Revision"])
+
+    # 3. Calculate Next Assignee (Visual Only)
+    if task_type == "New Task":
+        next_person = NEW_TASK_ORDER[st.session_state.new_task_idx]
+        next_idx = st.session_state.new_task_idx
+        order_list = NEW_TASK_ORDER
+    else:
+        next_person = REVISION_ORDER[st.session_state.rev_task_idx]
+        next_idx = st.session_state.rev_task_idx
+        order_list = REVISION_ORDER
+
+    # Show who is next
+    st.markdown(f"""
+        <div class="next-assignee-box">
+            <div style="font-size:0.8rem; color:#666; text-transform:uppercase; letter-spacing:1px;">Next Assignee</div>
+            <div class="assignee-name">{next_person}</div>
+        </div>
+    """, unsafe_allow_html=True)
+
+    # 4. Assign Button
+    if st.button("🚀 Assign File"):
+        if uploaded_file:
+            # Add to Log
+            new_entry = {
+                "Task / File": uploaded_file.name,
+                "Type": task_type,
+                "Assigned To": next_person,
+                "Time": datetime.now().strftime("%d/%m/%Y, %I:%M %p")
+            }
+            # Insert at the top (Index 0)
+            st.session_state.log.insert(0, new_entry)
+            
+            # Update Turn (Cycle Logic)
+            if task_type == "New Task":
+                st.session_state.new_task_idx = (st.session_state.new_task_idx + 1) % 3
+            else:
+                st.session_state.rev_task_idx = (st.session_state.rev_task_idx + 1) % 3
+            
+            st.toast(f"Assigned to {next_person}!", icon="✅")
+            st.rerun()
+        else:
+            st.error("Please upload a file first.")
+            
+    st.markdown('</div>', unsafe_allow_html=True) # End Card 1
+
+    # --- CARD 2: CYCLE STATUS ---
+    st.markdown('<div class="css-card">', unsafe_allow_html=True)
+    st.markdown("#### Cycle Status")
+    
+    # Visualizing the New Task Cycle
+    st.caption("New Task Cycle (Round Robin)")
+    new_html = ""
+    for i, member in enumerate(NEW_TASK_ORDER):
+        color = "#dcfce7" if i == st.session_state.new_task_idx else "#f3f4f6"
+        border = "2px solid #22c55e" if i == st.session_state.new_task_idx else "1px solid #e5e7eb"
+        text_w = "bold" if i == st.session_state.new_task_idx else "normal"
+        new_html += f"<span style='background:{color}; border:{border}; padding:5px; border-radius:5px; font-weight:{text_w}; margin-right:5px; font-size:0.8rem'>{member.split(' ')[-1]}</span>"
+        if i < 2: new_html += " → "
+    st.markdown(new_html, unsafe_allow_html=True)
+
+    st.write("") # Spacer
+
+    # Visualizing the Revision Cycle
+    st.caption("Revision Cycle")
+    rev_html = ""
+    for i, member in enumerate(REVISION_ORDER):
+        color = "#ffedd5" if i == st.session_state.rev_task_idx else "#f3f4f6"
+        border = "2px solid #f97316" if i == st.session_state.rev_task_idx else "1px solid #e5e7eb"
+        text_w = "bold" if i == st.session_state.rev_task_idx else "normal"
+        rev_html += f"<span style='background:{color}; border:{border}; padding:5px; border-radius:5px; font-weight:{text_w}; margin-right:5px; font-size:0.8rem'>{member.split(' ')[-1]}</span>"
+        if i < 2: rev_html += " → "
+    st.markdown(rev_html, unsafe_allow_html=True)
+    
+    st.markdown('</div>', unsafe_allow_html=True) # End Card 2
+
+
+# ================= RIGHT COLUMN: LOG =================
+with right_col:
+    st.markdown('<div class="css-card">', unsafe_allow_html=True)
+    
+    # Header row with Reset button
+    c1, c2 = st.columns([4, 1])
+    c1.markdown("### 📋 Assignment Log")
+    if c2.button("Reset All", type="secondary"):
+        st.session_state.log = []
+        st.session_state.new_task_idx = 0
+        st.session_state.rev_task_idx = 0
+        st.rerun()
+
+    # Display Table
+    if st.session_state.log:
+        df = pd.DataFrame(st.session_state.log)
+        
+        # Adding ID column (1, 2, 3...) based on current list length
+        df.insert(0, "#", range(len(df), 0, -1))
+
+        # We use Styler to highlight columns logic
+        def highlight_type(val):
+            if val == "New Task": return 'background-color: #dcfce7; color: #166534; font-weight: bold; border-radius:5px;'
+            return 'background-color: #ffedd5; color: #9a3412; font-weight: bold; border-radius:5px;'
+
+        # Using Streamlit Dataframe with Column Config for cleaner look
+        st.dataframe(
+            df,
+            hide_index=True,
+            use_container_width=True,
+            column_config={
+                "#": st.column_config.NumberColumn(width="small"),
+                "Task / File": st.column_config.TextColumn(width="large"),
+                "Type": st.column_config.TextColumn(width="medium"),
+                "Assigned To": st.column_config.TextColumn(width="medium"),
+                "Time": st.column_config.TextColumn(width="medium"),
+            }
+        )
+    else:
+        st.info("No files assigned yet. Upload a file to start.")
+        
+    st.markdown('</div>', unsafe_allow_html=True) # End Card 3
