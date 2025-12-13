@@ -5,7 +5,7 @@ from datetime import datetime
 # --- SETUP PAGE & CSS ---
 st.set_page_config(page_title="Write Wise Task Distributor", layout="wide", page_icon="📝")
 
-# Custom CSS for Professional Look
+# Custom CSS
 st.markdown("""
     <style>
     .stApp { background-color: #f4f7f6; }
@@ -45,15 +45,15 @@ st.markdown("""
 NEW_TASK_ORDER = ["Muhammad Imran", "Mazhar Abbas", "Muhammad Ahmad"]
 REVISION_ORDER = ["Muhammad Ahmad", "Mazhar Abbas", "Muhammad Imran"]
 
-# --- SESSION STATE (Database) ---
+# --- SESSION STATE ---
 if 'log' not in st.session_state:
     st.session_state.log = []
 
-# Logic to Clear File Uploader (Unique Key)
+# Key to clear file uploader
 if 'file_key' not in st.session_state:
     st.session_state.file_key = 0
 
-# Track turns
+# Track turns (Indices)
 if 'new_task_idx' not in st.session_state:
     st.session_state.new_task_idx = 0 
 if 'rev_task_idx' not in st.session_state:
@@ -76,7 +76,7 @@ with left_col:
     with tab1:
         st.write("")
         
-        # NOTE: key=... is used to reset the uploader
+        # File Uploader with Dynamic Key (clears on success)
         uploaded_file = st.file_uploader(
             "Upload File", 
             label_visibility="collapsed", 
@@ -84,13 +84,13 @@ with left_col:
         )
         
         if uploaded_file:
-            st.success(f"Ready to assign: {uploaded_file.name}")
+            st.success(f"Ready: {uploaded_file.name}")
         else:
-            st.info("⚠️ Please upload a file to start.")
+            st.info("⚠️ Pehly File Upload karein.")
 
         task_type = st.selectbox("Task Type", ["New Task", "Revision"])
 
-        # Determine Next Person
+        # Determine Next Person (But don't move index yet!)
         if task_type == "New Task":
             next_person = NEW_TASK_ORDER[st.session_state.new_task_idx]
         else:
@@ -104,7 +104,14 @@ with left_col:
         """, unsafe_allow_html=True)
 
         if st.button("🚀 Assign File"):
-            if uploaded_file:
+            # === SAFETY CHECK ===
+            if not uploaded_file:
+                # Agar file nahi hai to yahan RUK jayen gay.
+                # Index update nahi hoga.
+                st.error(f"⛔ RUKAIN! File upload nahi hui. Task abhi bhi '{next_person}' ka hi hai.")
+            else:
+                # Agar File hai, sirf tab hi agay barhein gay
+                
                 # 1. Save Data
                 new_entry = {
                     "Task / File": uploaded_file.name,
@@ -114,19 +121,17 @@ with left_col:
                 }
                 st.session_state.log.insert(0, new_entry)
                 
-                # 2. Update Cycle
+                # 2. Update Cycle (MOVE TURN NOW)
                 if task_type == "New Task":
                     st.session_state.new_task_idx = (st.session_state.new_task_idx + 1) % 3
                 else:
                     st.session_state.rev_task_idx = (st.session_state.rev_task_idx + 1) % 3
                 
-                # 3. RESET FILE UPLOADER Logic
+                # 3. Clear File Uploader for next time
                 st.session_state.file_key += 1 
                 
                 st.toast(f"Assigned to {next_person}!", icon="✅")
                 st.rerun()
-            else:
-                st.error("⛔ RUKAIN! Pehly file upload karein, phir assign hoga.")
 
     # --- TAB 2: FIX MISTAKE ---
     with tab2:
