@@ -4,104 +4,130 @@ from datetime import datetime
 from streamlit_gsheets import GSheetsConnection
 
 # --- 1. PAGE CONFIGURATION ---
-st.set_page_config(page_title="Write Wise Task Distributor", layout="wide", page_icon="📝")
+st.set_page_config(page_title="Write Wise Task Distributor", layout="wide", page_icon="✨")
 
-# --- 2. ADVANCED CSS (THE MAGIC) ---
+# --- 2. PREMIUM CSS STYLING ---
 st.markdown("""
     <style>
-    /* Import Google Font */
-    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
-    
-    /* General Settings */
+    /* Import Premium Font */
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700&display=swap');
+
+    /* Global Reset */
     html, body, [class*="css"] {
-        font-family: 'Poppins', sans-serif;
-        color: #1e293b;
+        font-family: 'Outfit', sans-serif;
+        color: #0f172a;
     }
     .stApp {
-        background-color: #f3f4f6;
+        background-color: #f8fafc; /* Ultra light grey-blue */
     }
 
-    /* Animated Gradient Header */
-    .hero-header {
-        background: linear-gradient(-45deg, #4f46e5, #7c3aed, #2563eb, #0ea5e9);
-        background-size: 400% 400%;
-        animation: gradient 15s ease infinite;
-        padding: 40px;
+    /* Custom Header */
+    .top-nav {
+        background: white;
+        padding: 20px 30px;
+        border-radius: 16px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 25px;
+        border: 1px solid #e2e8f0;
+    }
+    .top-nav h1 {
+        margin: 0;
+        font-size: 1.5rem;
+        font-weight: 700;
+        background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    .badge {
+        background: #eff6ff;
+        color: #3b82f6;
+        padding: 5px 12px;
         border-radius: 20px;
-        color: white;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+
+    /* Stat Cards */
+    .stat-card {
+        background: white;
+        padding: 20px;
+        border-radius: 16px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
         text-align: center;
-        margin-bottom: 30px;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+        transition: transform 0.2s;
     }
-    @keyframes gradient {
-        0% {background-position: 0% 50%;}
-        50% {background-position: 100% 50%;}
-        100% {background-position: 0% 50%;}
-    }
-    .hero-header h1 { font-weight: 800; font-size: 2.5rem; margin: 0; color: white; text-shadow: 2px 2px 4px rgba(0,0,0,0.2); }
-    .hero-header p { font-size: 1.1rem; opacity: 0.9; margin-top: 5px; font-weight: 300; }
+    .stat-card:hover { transform: translateY(-3px); border-color: #cbd5e1; }
+    .stat-num { font-size: 2.2rem; font-weight: 700; color: #1e293b; }
+    .stat-label { font-size: 0.9rem; color: #64748b; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
 
-    /* Modern Cards */
-    .glass-card {
-        background: rgba(255, 255, 255, 0.95);
+    /* Action Container */
+    .action-container {
+        background: white;
         border-radius: 20px;
-        padding: 25px;
-        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
-        backdrop-filter: blur(4px);
-        -webkit-backdrop-filter: blur(4px);
-        border: 1px solid rgba(255, 255, 255, 0.18);
-        margin-bottom: 20px;
-        transition: transform 0.3s;
+        padding: 30px;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+        border: 1px solid #e2e8f0;
     }
-    .glass-card:hover { transform: translateY(-5px); }
 
-    /* Custom Buttons */
-    .stButton > button {
-        background: #4f46e5;
+    /* Assignee Hero Box */
+    .hero-assignee {
+        background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+        padding: 25px;
+        border-radius: 16px;
+        text-align: center;
+        color: white;
+        margin: 20px 0;
+        position: relative;
+        overflow: hidden;
+    }
+    .hero-assignee::before {
+        content: "";
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 60%);
+        animation: rotate 10s linear infinite;
+    }
+    @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    
+    .hero-assignee h2 { color: white; margin: 0; font-size: 1.8rem; font-weight: 700; position: relative; z-index: 1; }
+    .hero-assignee p { color: rgba(255,255,255,0.8); margin: 0; font-size: 0.9rem; font-weight: 500; position: relative; z-index: 1; }
+
+    /* Sidebar User Item */
+    .user-item {
+        display: flex;
+        align-items: center;
+        padding: 10px;
+        margin-bottom: 8px;
+        border-radius: 10px;
+        transition: 0.2s;
+    }
+    .user-item.active { background: #eff6ff; border: 1px solid #bfdbfe; }
+    .user-item .dot { height: 8px; width: 8px; border-radius: 50%; margin-right: 12px; }
+    .dot-active { background: #3b82f6; box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2); }
+    .dot-inactive { background: #cbd5e1; }
+    .user-name { font-size: 0.95rem; font-weight: 500; color: #334155; }
+    .user-status { font-size: 0.75rem; color: #64748b; margin-left: auto; }
+
+    /* Custom Button */
+    div.stButton > button {
+        background: #0f172a;
         color: white;
         border-radius: 12px;
-        height: 50px;
-        font-weight: 600;
-        font-size: 16px;
         border: none;
-        box-shadow: 0 4px 14px 0 rgba(79, 70, 229, 0.39);
-        transition: 0.2s;
+        padding: 12px 20px;
+        font-weight: 600;
         width: 100%;
+        transition: all 0.2s;
     }
-    .stButton > button:hover {
-        background: #4338ca;
-        transform: scale(1.02);
-    }
-
-    /* Next Assignee Highlight Box */
-    .assignee-box {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 20px;
-        border-radius: 15px;
-        text-align: center;
-        margin: 20px 0;
-    }
-    .assignee-box h3 { margin: 0; font-size: 1rem; opacity: 0.8; color: white;}
-    .assignee-box h2 { margin: 5px 0 0 0; font-size: 1.8rem; font-weight: 700; color: white; }
-
-    /* Sidebar Status Timeline */
-    .timeline-item {
-        padding: 10px;
-        border-left: 3px solid #e2e8f0;
-        margin-left: 10px;
-        padding-left: 20px;
-        position: relative;
-    }
-    .timeline-item.active { border-left: 3px solid #4f46e5; }
-    .timeline-dot {
-        height: 12px; width: 12px; background-color: #cbd5e1;
-        border-radius: 50%; position: absolute; left: -7.5px; top: 15px;
-    }
-    .timeline-item.active .timeline-dot { background-color: #4f46e5; box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.2); }
+    div.stButton > button:hover { background: #334155; transform: scale(1.01); }
     
-    /* Stats Numbers */
-    div[data-testid="stMetricValue"] { font-size: 2rem; color: #4f46e5; font-weight: 700; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -121,146 +147,163 @@ def get_data():
 
 df = get_data()
 
-# Calculate Indices
+# Logic
 new_idx = len(df[df["Type"] == "New Task"]) % 3
 rev_idx = len(df[df["Type"] == "Revision"]) % 3
 
-# --- 4. SIDEBAR (TIMELINE) ---
+# --- 4. SIDEBAR (TEAM STATUS) ---
 with st.sidebar:
-    st.markdown("### 👤 Admin Panel")
-    st.info("Logged in as: **Zaheer Abbas**")
-    st.write("")
+    st.markdown("### 👥 Team Status")
     
-    st.markdown("#### 🔄 Workflow Status")
-    
-    # Custom Timeline HTML for Sidebar
-    st.caption("New Task Cycle")
-    for i, m in enumerate(NEW_TASK_ORDER):
-        active_class = "active" if i == new_idx else ""
+    st.caption("NEW TASK CYCLE")
+    for i, member in enumerate(NEW_TASK_ORDER):
+        is_active = (i == new_idx)
+        active_class = "active" if is_active else ""
+        dot_class = "dot-active" if is_active else "dot-inactive"
+        status_text = "Next Up" if is_active else "Waiting"
+        
         st.markdown(f"""
-        <div class="timeline-item {active_class}">
-            <div class="timeline-dot"></div>
-            <div style="font-weight: {'bold' if i == new_idx else 'normal'}; color: {'#1e293b' if i == new_idx else '#94a3b8'}">
-                {m}
-            </div>
+        <div class="user-item {active_class}">
+            <div class="dot {dot_class}"></div>
+            <div class="user-name">{member}</div>
+            <div class="user-status">{status_text}</div>
         </div>
         """, unsafe_allow_html=True)
 
     st.write("")
-    st.caption("Revision Cycle")
-    for i, m in enumerate(REVISION_ORDER):
-        active_class = "active" if i == rev_idx else ""
+    st.caption("REVISION CYCLE")
+    for i, member in enumerate(REVISION_ORDER):
+        is_active = (i == rev_idx)
+        active_class = "active" if is_active else ""
+        dot_class = "dot-active" if is_active else "dot-inactive"
+        status_text = "Next Up" if is_active else "Waiting"
+        
         st.markdown(f"""
-        <div class="timeline-item {active_class}">
-            <div class="timeline-dot"></div>
-            <div style="font-weight: {'bold' if i == rev_idx else 'normal'}; color: {'#1e293b' if i == rev_idx else '#94a3b8'}">
-                {m}
-            </div>
+        <div class="user-item {active_class}">
+            <div class="dot {dot_class}" style="background: {'#f59e0b' if is_active else '#cbd5e1'}"></div>
+            <div class="user-name">{member}</div>
+            <div class="user-status">{status_text}</div>
         </div>
         """, unsafe_allow_html=True)
     
     st.divider()
-    if st.button("🔄 Refresh System"): st.rerun()
+    if st.button("🔄 Refresh Data"): st.rerun()
 
 # --- 5. MAIN DASHBOARD ---
 
-# Animated Header
+# Header
 st.markdown("""
-    <div class="hero-header">
-        <h1>📝 Write Wise Task Distributor</h1>
-        <p>Smart Workflow & Team Management System</p>
+    <div class="top-nav">
+        <h1>Write Wise Task Distributor</h1>
+        <div class="badge">Online ●</div>
     </div>
 """, unsafe_allow_html=True)
 
-# Stats Cards
+# Stats
 c1, c2, c3 = st.columns(3)
 with c1:
-    st.markdown('<div class="glass-card" style="text-align:center">', unsafe_allow_html=True)
-    st.metric("Total Workflow", len(df))
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown(f"""
+    <div class="stat-card">
+        <div class="stat-num">{len(df)}</div>
+        <div class="stat-label">Total Workflow</div>
+    </div>
+    """, unsafe_allow_html=True)
 with c2:
-    st.markdown('<div class="glass-card" style="text-align:center">', unsafe_allow_html=True)
-    st.metric("New Tasks", len(df[df["Type"] == "New Task"]))
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown(f"""
+    <div class="stat-card">
+        <div class="stat-num" style="color:#3b82f6">{len(df[df["Type"] == "New Task"])}</div>
+        <div class="stat-label">New Tasks</div>
+    </div>
+    """, unsafe_allow_html=True)
 with c3:
-    st.markdown('<div class="glass-card" style="text-align:center">', unsafe_allow_html=True)
-    st.metric("Revisions", len(df[df["Type"] == "Revision"]))
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown(f"""
+    <div class="stat-card">
+        <div class="stat-num" style="color:#f59e0b">{len(df[df["Type"] == "Revision"])}</div>
+        <div class="stat-label">Revisions</div>
+    </div>
+    """, unsafe_allow_html=True)
 
-# Main Control Area
-col_left, col_right = st.columns([1, 1.5])
+st.write("") # Spacer
+
+# Main Content
+left, right = st.columns([1, 1.6])
 
 if 'f_key' not in st.session_state: st.session_state.f_key = 0
 
-with col_left:
-    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-    st.markdown("### ⚡ Quick Actions")
+with left:
+    st.markdown('<div class="action-container">', unsafe_allow_html=True)
+    st.markdown("### ⚡ Action Center")
     
-    tab1, tab2 = st.tabs(["Assign Task", "Fix Mistake"])
+    tab1, tab2 = st.tabs(["Assign", "Correction"])
     
     with tab1:
         st.write("")
-        u_file = st.file_uploader("📂 Upload Document", key=f"k_{st.session_state.f_key}")
-        t_type = st.radio("Select Category", ["New Task", "Revision"], horizontal=True)
+        u_file = st.file_uploader("Upload Document", key=f"k_{st.session_state.f_key}")
+        t_type = st.radio("Select Category", ["New Task", "Revision"], horizontal=True, label_visibility="collapsed")
         
-        # Logic
+        # Calculate Next Person
         nxt = NEW_TASK_ORDER[new_idx] if t_type == "New Task" else REVISION_ORDER[rev_idx]
         
-        # Big Visual Box
+        # Hero Card
         st.markdown(f"""
-            <div class="assignee-box">
-                <h3>UP NEXT</h3>
+            <div class="hero-assignee">
+                <p>NEXT ASSIGNEE</p>
                 <h2>{nxt}</h2>
             </div>
         """, unsafe_allow_html=True)
         
-        if st.button("🚀 Launch Assignment"):
+        if st.button("Confirm & Assign ➝"):
             if u_file:
                 new_row = pd.DataFrame([{
                     "Task / File": u_file.name, "Type": t_type, 
-                    "Assigned To": nxt, "Time": datetime.now().strftime("%d-%b %I:%M %p")
+                    "Assigned To": nxt, "Time": datetime.now().strftime("%d-%b %H:%M")
                 }])
                 conn.update(data=pd.concat([df, new_row], ignore_index=True))
                 st.session_state.f_key += 1
-                st.toast(f"Assigned to {nxt}", icon="✅")
+                st.toast(f"Task Assigned to {nxt}", icon="✨")
                 st.rerun()
             else:
-                st.error("⚠️ Please upload a file first!")
+                st.error("⚠️ Please attach a file first.")
 
     with tab2:
-        st.warning("Use this to fix incorrect file uploads.")
+        st.info("Replace incorrect files here.")
         if not df.empty:
             rev_df = df.iloc[::-1]
             opts = [f"#{i+1} • {r['Task / File']}" for i, r in rev_df.iterrows()]
             s_task = st.selectbox("Select Task", opts)
-            real_idx = len(df) - 1 - opts.index(s_task)
+            idx = len(df) - 1 - opts.index(s_task)
             
             n_file = st.file_uploader("Correct File", key="fix")
-            if st.button("💾 Save Fix"):
+            if st.button("Update File"):
                 if n_file:
-                    df.at[real_idx, "Task / File"] = n_file.name
+                    df.at[idx, "Task / File"] = n_file.name
                     conn.update(data=df)
-                    st.success("Fixed!")
+                    st.success("File Updated!")
                     st.rerun()
-        else: st.info("No tasks.")
-
+        else: st.warning("No records.")
+        
     st.markdown('</div>', unsafe_allow_html=True)
 
-with col_right:
-    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-    st.markdown("### 📋 Live Activity Feed")
+with right:
+    st.markdown('<div class="action-container">', unsafe_allow_html=True)
+    st.markdown("### 📋 Activity Log")
     
     if not df.empty:
         disp_df = df.iloc[::-1].copy()
+        
         st.dataframe(
-            disp_df, hide_index=True, use_container_width=True, height=450,
+            disp_df,
+            hide_index=True,
+            use_container_width=True,
+            height=500,
             column_config={
-                "Task / File": st.column_config.TextColumn("File Name", width="large"),
-                "Type": st.column_config.TextColumn("Type", width="small"),
-                "Assigned To": st.column_config.TextColumn("Owner", width="medium"),
-                "Time": st.column_config.TextColumn("Sent At", width="medium"),
+                "Task / File": st.column_config.TextColumn("File", width="large"),
+                "Type": st.column_config.TextColumn("Category", width="small"),
+                "Assigned To": st.column_config.TextColumn("Member", width="medium"),
+                "Time": st.column_config.TextColumn("Time", width="small"),
             }
         )
     else:
-        st.info("No activity recorded yet.")
+        st.info("No tasks in the system yet.")
+    
     st.markdown('</div>', unsafe_allow_html=True)
