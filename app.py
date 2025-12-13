@@ -4,7 +4,7 @@ from datetime import datetime
 from streamlit_gsheets import GSheetsConnection
 
 # --- 1. PAGE CONFIGURATION ---
-st.set_page_config(page_title="TaskFlow Pro", layout="wide", page_icon="⚡")
+st.set_page_config(page_title="Write Wise Task Distributor", layout="wide", page_icon="📝")
 
 # --- 2. ADVANCED CSS (THE MAGIC) ---
 st.markdown("""
@@ -23,7 +23,7 @@ st.markdown("""
 
     /* Animated Gradient Header */
     .hero-header {
-        background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
+        background: linear-gradient(-45deg, #4f46e5, #7c3aed, #2563eb, #0ea5e9);
         background-size: 400% 400%;
         animation: gradient 15s ease infinite;
         padding: 40px;
@@ -38,8 +38,8 @@ st.markdown("""
         50% {background-position: 100% 50%;}
         100% {background-position: 0% 50%;}
     }
-    .hero-header h1 { font-weight: 800; font-size: 3rem; margin: 0; color: white; text-shadow: 2px 2px 4px rgba(0,0,0,0.2); }
-    .hero-header p { font-size: 1.2rem; opacity: 0.9; margin-top: 5px; }
+    .hero-header h1 { font-weight: 800; font-size: 2.5rem; margin: 0; color: white; text-shadow: 2px 2px 4px rgba(0,0,0,0.2); }
+    .hero-header p { font-size: 1.1rem; opacity: 0.9; margin-top: 5px; font-weight: 300; }
 
     /* Modern Cards */
     .glass-card {
@@ -167,8 +167,8 @@ with st.sidebar:
 # Animated Header
 st.markdown("""
     <div class="hero-header">
-        <h1>🚀 TaskFlow Command Center</h1>
-        <p>Streamlined Assignment & Revision Management System</p>
+        <h1>📝 Write Wise Task Distributor</h1>
+        <p>Smart Workflow & Team Management System</p>
     </div>
 """, unsafe_allow_html=True)
 
@@ -225,7 +225,7 @@ with col_left:
                 st.toast(f"Assigned to {nxt}", icon="✅")
                 st.rerun()
             else:
-                st.error("⚠️ File missing!")
+                st.error("⚠️ Please upload a file first!")
 
     with tab2:
         st.warning("Use this to fix incorrect file uploads.")
