@@ -3,22 +3,90 @@ import pandas as pd
 from datetime import datetime
 from streamlit_gsheets import GSheetsConnection
 
-# --- PAGE SETUP ---
-st.set_page_config(page_title="Write Wise Task Distributor", layout="wide", page_icon="📝")
+# --- PAGE CONFIGURATION ---
+st.set_page_config(page_title="TeamFlow Pro", layout="wide", page_icon="⚡")
 
-# --- CSS STYLING ---
+# --- MODERN UI (CSS STYLING) ---
 st.markdown("""
     <style>
-    .stApp { background-color: #f4f7f6; }
-    .css-card { background-color: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 20px; }
-    h1 { color: #3b3bff; text-align: center; font-weight: 800; font-size: 2rem;}
-    .sub-head { text-align: center; color: #666; font-size: 1rem; margin-bottom: 30px;}
-    div.stButton > button { width: 100%; border-radius: 10px; font-weight: bold; border: none; padding: 10px; }
-    .stButton button { background-color: #4f46e5; color: white; }
-    .stButton button:hover { background-color: #4338ca; }
-    .next-assignee-box { background-color: #f0f9ff; border: 1px solid #bae6fd; padding: 15px; border-radius: 10px; text-align: center; margin: 10px 0; }
-    .assignee-name { color: #0284c7; font-size: 1.2rem; font-weight: bold; }
-    .fix-box { border: 1px dashed #ef4444; background-color: #fef2f2; padding: 15px; border-radius: 10px; }
+    /* Global Settings */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+    
+    html, body, [class*="css"] {
+        font-family: 'Inter', sans-serif;
+    }
+    
+    .stApp {
+        background-color: #f8fafc; /* Very light blue-grey */
+    }
+
+    /* Gradient Header */
+    .header-box {
+        background: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%);
+        padding: 30px;
+        border-radius: 20px;
+        color: white;
+        margin-bottom: 25px;
+        box-shadow: 0 10px 25px rgba(63, 72, 204, 0.2);
+    }
+    .header-box h1 { margin: 0; font-size: 2.2rem; font-weight: 800; color: white; }
+    .header-box p { margin: 5px 0 0 0; opacity: 0.8; font-size: 1rem; }
+
+    /* Custom Cards */
+    .modern-card {
+        background: white;
+        padding: 25px;
+        border-radius: 16px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+        border: 1px solid #e2e8f0;
+        margin-bottom: 20px;
+    }
+
+    /* Assign Button Styling */
+    div.stButton > button {
+        background: linear-gradient(90deg, #4f46e5 0%, #6366f1 100%);
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 12px;
+        font-weight: 600;
+        width: 100%;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 12px rgba(79, 70, 229, 0.2);
+    }
+    div.stButton > button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 15px rgba(79, 70, 229, 0.3);
+    }
+
+    /* Next Assignee Highlight */
+    .assignee-badge {
+        background-color: #eff6ff;
+        border-left: 5px solid #3b82f6;
+        padding: 15px;
+        border-radius: 8px;
+        color: #1e293b;
+        font-weight: 600;
+        margin: 15px 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .assignee-badge span { color: #3b82f6; font-size: 1.1rem; }
+
+    /* Sidebar Styling */
+    [data-testid="stSidebar"] {
+        background-color: #ffffff;
+        border-right: 1px solid #e2e8f0;
+    }
+    
+    /* Cycle Status Indicators */
+    .status-dot {
+        height: 10px; width: 10px; border-radius: 50%; display: inline-block; margin-right: 8px;
+    }
+    .active-user { background-color: #dbeafe; border: 1px solid #3b82f6; color: #1e3a8a; padding: 8px; border-radius: 8px; font-weight: bold; display: block; margin-bottom: 5px;}
+    .inactive-user { color: #94a3b8; padding: 8px; display: block; margin-bottom: 5px;}
+
     </style>
 """, unsafe_allow_html=True)
 
@@ -26,148 +94,178 @@ st.markdown("""
 NEW_TASK_ORDER = ["Muhammad Imran", "Mazhar Abbas", "Muhammad Ahmad"]
 REVISION_ORDER = ["Muhammad Ahmad", "Mazhar Abbas", "Muhammad Imran"]
 
-# --- CONNECT TO GOOGLE SHEET ---
+# --- GOOGLE SHEETS CONNECTION ---
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 def get_data():
     try:
-        # Sheet se Data parho (No Cache = Fresh Data)
         df = conn.read(ttl=0)
-        # Agar sheet khali ho to Columns khud bana do
         required_cols = ["Task / File", "Type", "Assigned To", "Time"]
         if df.empty or not all(col in df.columns for col in required_cols):
             return pd.DataFrame(columns=required_cols)
         return df.dropna(how="all")
-    except Exception:
+    except:
         return pd.DataFrame(columns=["Task / File", "Type", "Assigned To", "Time"])
 
-# --- HEADER ---
-st.markdown("<h1>📝 Write Wise Task Distributor</h1>", unsafe_allow_html=True)
-st.markdown("<div class='sub-head'>Admin: <span style='color:#4f46e5; font-weight:bold;'>Zaheer Abbas</span> (Google Sheets Connected)</div>", unsafe_allow_html=True)
-
-# --- LOAD DATA & CALCULATE TURN ---
 df = get_data()
 
-# Logic: Count karo k kitny tasks ho chukay hain, wahi agla number hoga
+# --- CALCULATE LOGIC ---
 total_new = len(df[df["Type"] == "New Task"])
 new_idx = total_new % 3
 
 total_rev = len(df[df["Type"] == "Revision"])
 rev_idx = total_rev % 3
 
-# --- UI LAYOUT ---
-left_col, right_col = st.columns([1.2, 2])
+# --- SIDEBAR (Dashboard Controls) ---
+with st.sidebar:
+    st.image("https://cdn-icons-png.flaticon.com/512/3135/3135715.png", width=50)
+    st.title("Admin Panel")
+    st.caption(f"Logged in as: **Zaheer Abbas**")
+    st.divider()
+
+    st.subheader("🔄 Cycle Status")
+    
+    # New Task Cycle Visual
+    st.markdown("**🟢 New Task Order**")
+    for i, member in enumerate(NEW_TASK_ORDER):
+        if i == new_idx:
+            st.markdown(f"<div class='active-user'>⚡ {member} (Next)</div>", unsafe_allow_html=True)
+        else:
+            st.markdown(f"<div class='inactive-user'>○ {member}</div>", unsafe_allow_html=True)
+            
+    st.divider()
+    
+    # Revision Cycle Visual
+    st.markdown("**🟠 Revision Order**")
+    for i, member in enumerate(REVISION_ORDER):
+        if i == rev_idx:
+            st.markdown(f"<div class='active-user'>⚡ {member} (Next)</div>", unsafe_allow_html=True)
+        else:
+            st.markdown(f"<div class='inactive-user'>○ {member}</div>", unsafe_allow_html=True)
+    
+    st.divider()
+    if st.button("🔄 Refresh Data"):
+        st.rerun()
+
+# --- MAIN DASHBOARD AREA ---
+
+# 1. Header Section
+st.markdown("""
+    <div class="header-box">
+        <h1>⚡ TeamFlow Dashboard</h1>
+        <p>Manage assignments, track revisions, and automate workflow.</p>
+    </div>
+""", unsafe_allow_html=True)
+
+# 2. Stats Row
+c1, c2, c3 = st.columns(3)
+with c1:
+    st.metric("Total Tasks Processed", len(df), delta="All Time")
+with c2:
+    st.metric("New Tasks", total_new, delta="Forward Cycle")
+with c3:
+    st.metric("Revisions", total_rev, delta="Reverse Cycle")
+
+st.write("") # Spacer
+
+# 3. Action Area & History
+col_action, col_history = st.columns([1, 1.8])
+
 if 'file_key' not in st.session_state: st.session_state.file_key = 0
 
-with left_col:
-    st.markdown('<div class="css-card">', unsafe_allow_html=True)
-    tab1, tab2 = st.tabs(["📤 Assign Work", "✏️ Fix Mistake"])
+# --- LEFT CARD: ACTION ---
+with col_action:
+    st.markdown('<div class="modern-card">', unsafe_allow_html=True)
+    st.subheader("🚀 Assign Work")
     
-    # === TAB 1: ASSIGN ===
-    with tab1:
+    tab_assign, tab_fix = st.tabs(["New Assignment", "Fix Mistake"])
+    
+    with tab_assign:
         st.write("")
-        uploaded_file = st.file_uploader("Upload File", key=f"up_{st.session_state.file_key}")
+        uploaded_file = st.file_uploader("Drop file here", key=f"up_{st.session_state.file_key}")
         
-        if uploaded_file: st.success(f"Selected: {uploaded_file.name}")
-        else: st.info("⚠️ Pehly File Upload karein")
+        task_type = st.radio("Select Category", ["New Task", "Revision"], horizontal=True)
 
-        task_type = st.selectbox("Task Type", ["New Task", "Revision"])
+        # Logic
+        if task_type == "New Task": 
+            next_person = NEW_TASK_ORDER[new_idx]
+            role_color = "#3b82f6"
+        else: 
+            next_person = REVISION_ORDER[rev_idx]
+            role_color = "#f59e0b"
 
-        # Next Banda kon hai?
-        if task_type == "New Task": next_person = NEW_TASK_ORDER[new_idx]
-        else: next_person = REVISION_ORDER[rev_idx]
-
+        # Visual Badge
         st.markdown(f"""
-            <div class="next-assignee-box">
-                <div style="font-size:0.8rem; color:#666;">Next Assignee</div>
-                <div class="assignee-name">{next_person}</div>
+            <div class="assignee-badge">
+                <div>Next Assignee</div>
+                <span>{next_person}</span>
             </div>
         """, unsafe_allow_html=True)
 
-        if st.button("🚀 Assign File"):
+        if st.button("Assign Now ➝", use_container_width=True):
             if not uploaded_file:
-                st.error("⛔ RUKAIN! File upload nahi hui. Task assign nahi hoga.")
+                st.error("⚠️ Please upload a file first.")
             else:
-                # Naya Data
                 new_row = pd.DataFrame([{
                     "Task / File": uploaded_file.name,
                     "Type": task_type,
                     "Assigned To": next_person,
-                    "Time": datetime.now().strftime("%d/%m/%Y, %I:%M %p")
+                    "Time": datetime.now().strftime("%d-%b %I:%M %p")
                 }])
-                
-                # Sheet update karo
                 updated_df = pd.concat([df, new_row], ignore_index=True)
                 conn.update(data=updated_df)
-                
-                # Reset
                 st.session_state.file_key += 1
-                st.toast(f"Saved! Assignee: {next_person}", icon="✅")
+                st.toast(f"Success! Task assigned to {next_person}", icon="🎉")
                 st.rerun()
 
-    # === TAB 2: FIX MISTAKE ===
-    with tab2:
-        st.write("")
-        st.markdown('<div class="fix-box">', unsafe_allow_html=True)
-        st.write("**Edit Wrong File**")
-        
+    with tab_fix:
+        st.info("Upload correct file to replace wrong one.")
         if not df.empty:
-            df_rev = df.iloc[::-1] # Show latest first
+            df_rev = df.iloc[::-1]
             options = []
             idx_map = {}
             for i, row in df_rev.iterrows():
-                txt = f"#{i+1} [{row['Type']}] {row['Task / File']} ➝ {row['Assigned To']}"
+                txt = f"#{i+1} • {row['Task / File']} ({row['Assigned To']})"
                 options.append(txt)
                 idx_map[txt] = i
             
             sel = st.selectbox("Select Task", options)
             real_idx = idx_map[sel]
             
-            new_f = st.file_uploader("Upload Correct File", key="fix")
-            if st.button("💾 Update File Now"):
+            new_f = st.file_uploader("Correct File", key="fix")
+            if st.button("Update File"):
                 if new_f:
                     df.at[real_idx, "Task / File"] = new_f.name
                     conn.update(data=df)
-                    st.success("File Updated in Google Sheet!")
+                    st.success("Updated!")
                     st.rerun()
-                else: st.error("File to select karein.")
         else:
-            st.warning("No Data found.")
-        st.markdown('</div>', unsafe_allow_html=True)
+            st.warning("No records found.")
+
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # === CYCLE DISPLAY ===
-    st.markdown('<div class="css-card">', unsafe_allow_html=True)
-    st.caption("New Task Cycle")
-    h = ""
-    for i, m in enumerate(NEW_TASK_ORDER):
-        c = "#dcfce7" if i == new_idx else "#f3f4f6"
-        b = "2px solid #22c55e" if i == new_idx else "1px solid #e5e7eb"
-        h += f"<span style='background:{c}; border:{b}; padding:4px; border-radius:5px; margin-right:3px; font-size:0.75rem'>{m.split(' ')[-1]}</span>"
-        if i < 2: h += " → "
-    st.markdown(h, unsafe_allow_html=True)
+# --- RIGHT CARD: HISTORY ---
+with col_history:
+    st.markdown('<div class="modern-card">', unsafe_allow_html=True)
+    st.subheader("📋 Recent Activity")
     
-    st.write("")
-    st.caption("Revision Cycle")
-    h2 = ""
-    for i, m in enumerate(REVISION_ORDER):
-        c = "#ffedd5" if i == rev_idx else "#f3f4f6"
-        b = "2px solid #f97316" if i == rev_idx else "1px solid #e5e7eb"
-        h2 += f"<span style='background:{c}; border:{b}; padding:4px; border-radius:5px; margin-right:3px; font-size:0.75rem'>{m.split(' ')[-1]}</span>"
-        if i < 2: h2 += " → "
-    st.markdown(h2, unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
-
-with right_col:
-    st.markdown('<div class="css-card">', unsafe_allow_html=True)
-    c1, c2 = st.columns([4, 1])
-    c1.markdown("### 📋 Assignment Log")
-    if c2.button("Refresh"): st.rerun()
-
     if not df.empty:
         d_df = df.iloc[::-1].copy()
-        d_df.insert(0, "#", range(len(df), 0, -1))
-        st.dataframe(d_df, hide_index=True, use_container_width=True)
+        
+        # Display Dataframe with modern config
+        st.dataframe(
+            d_df,
+            hide_index=True,
+            use_container_width=True,
+            height=400,
+            column_config={
+                "Task / File": st.column_config.TextColumn("File Name", width="large", help="Name of the file"),
+                "Type": st.column_config.TextColumn("Category", width="small"),
+                "Assigned To": st.column_config.TextColumn("Member", width="medium"),
+                "Time": st.column_config.TextColumn("Timestamp", width="medium"),
+            }
+        )
     else:
-        st.info("No data in Google Sheet.")
+        st.info("No tasks assigned yet.")
+        
     st.markdown('</div>', unsafe_allow_html=True)
