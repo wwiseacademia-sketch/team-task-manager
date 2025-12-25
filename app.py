@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import altair as alt
 from datetime import datetime
 from streamlit_gsheets import GSheetsConnection
 
@@ -15,14 +14,12 @@ st.markdown("""
     
     .block-container { padding-top: 2rem; padding-bottom: 5rem; }
 
-    /* BLOCK CARDS */
+    /* DASHBOARD BLOCKS */
     .dashboard-block {
         background: white; border-radius: 16px; padding: 25px;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         margin-bottom: 24px; border: 1px solid #e2e8f0;
-        transition: transform 0.2s;
     }
-    .dashboard-block:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
 
     /* THEMES */
     .theme-blue { border-top: 5px solid #3b82f6; }
@@ -34,17 +31,19 @@ st.markdown("""
     .blk-header { font-size: 1.25rem; font-weight: 800; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
     .txt-blue { color: #1d4ed8; } .txt-orange { color: #c2410c; } .txt-green { color: #15803d; } .txt-white { color: white; }
 
-    /* ASSIGNEE BADGE */
-    .assign-badge {
-        background: #f8fafc; border: 1px dashed #94a3b8; padding: 10px;
-        border-radius: 8px; text-align: center; font-weight: 700; color: #475569;
-        margin: 15px 0;
+    /* ANALYTICS BARS (CUSTOM HTML) */
+    .stats-container { margin-bottom: 15px; padding: 10px; background: white; border-radius: 10px; border: 1px solid #e2e8f0; }
+    .stats-name { font-weight: bold; font-size: 0.9rem; margin-bottom: 5px; color: #334155; }
+    .bar-row { display: flex; gap: 5px; margin-bottom: 5px; }
+    .bar-block { 
+        padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: bold; color: white; 
+        display: flex; align-items: center; justify-content: space-between; width: 50%;
     }
+    .bar-blue { background: #3b82f6; }
+    .bar-orange { background: #f97316; }
 
     /* BUTTONS */
     div.stButton > button { width: 100%; border-radius: 8px; font-weight: 600; padding: 12px; }
-    
-    /* REMOVE WATERMARKS */
     #MainMenu {visibility: hidden;} footer {visibility: hidden;}
     </style>
 """, unsafe_allow_html=True)
@@ -61,11 +60,8 @@ def get_data():
         df = conn.read(ttl=0)
         for col in req:
             if col not in df.columns: df[col] = "" if col != "Amount" else 0
-        
-        # CLEANING
         df['Type'] = df['Type'].astype(str).str.strip()
         df['Amount'] = pd.to_numeric(df['Amount'], errors='coerce').fillna(0)
-        
         return df.dropna(how="all")
     except: return pd.DataFrame(columns=req)
 
@@ -74,38 +70,41 @@ df = get_data()
 new_idx = len(df[df["Type"] == "New Task"]) % 3
 rev_idx = len(df[df["Type"] == "Revision"]) % 3
 
-# --- 4. SIDEBAR ANALYTICS (BAR BLOCKS) ---
+# --- 4. SIDEBAR ANALYTICS (CUSTOM BLOCKS) ---
 with st.sidebar:
-    st.header("📊 Performance Bars")
+    st.header("📊 Performance")
     
     if not df.empty:
-        # PREPARE DATA FOR BAR CHART
-        # Group by Person AND Type
-        chart_df = df.groupby(['Assigned To', 'Type']).size().reset_index(name='Count')
-        
-        # Create Bar Chart (Blocks)
-        bars = alt.Chart(chart_df).mark_bar(cornerRadiusTopLeft=5, cornerRadiusTopRight=5).encode(
-            x=alt.X('Type', axis=None), # Hide x-axis labels inside groups
-            y=alt.Y('Count', title='Total Tasks'),
-            color=alt.Color('Type', scale=alt.Scale(domain=['New Task', 'Revision'], range=['#3b82f6', '#f97316']), legend=alt.Legend(title=None, orient="bottom")),
-            column=alt.Column('Assigned To', header=alt.Header(title=None, labelFontSize=11, labelFontWeight='bold')),
-            tooltip=['Assigned To', 'Type', 'Count']
-        ).properties(width=50, height=180) # Adjust size
-        
-        st.altair_chart(bars)
+        # Loop through each writer to create Blocks
+        for writer in NEW_TASK_ORDER:
+            # Calculate Counts
+            n_count = len(df[(df['Assigned To'] == writer) & (df['Type'] == 'New Task')])
+            r_count = len(df[(df['Assigned To'] == writer) & (df['Type'] == 'Revision')])
+            
+            # HTML Blocks (Guaranteed to show)
+            st.markdown(f"""
+            <div class="stats-container">
+                <div class="stats-name">{writer}</div>
+                <div class="bar-row">
+                    <div class="bar-block bar-blue">
+                        <span>New</span> <span>{n_count}</span>
+                    </div>
+                    <div class="bar-block bar-orange">
+                        <span>Rev</span> <span>{r_count}</span>
+                    </div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
 
-        # FINANCIAL METRICS
         st.divider()
-        st.caption("FINANCIAL OVERVIEW")
+        st.caption("FINANCIALS")
         pending = df[df['Payment Status'] == 'Pending']['Amount'].sum()
         received = df[df['Payment Status'] == 'Received']['Amount'].sum()
-        
         c_a, c_b = st.columns(2)
-        c_a.metric("Received", f"{received/1000:.1f}k")
-        c_b.metric("Pending", f"{pending/1000:.1f}k", delta_color="inverse")
-        
+        c_a.metric("Recvd", f"{received/1000:.1f}k")
+        c_b.metric("Pend", f"{pending/1000:.1f}k", delta_color="inverse")
     else:
-        st.info("No data for analytics yet.")
+        st.info("No data yet.")
         
     st.write("")
     if st.button("🔄 Refresh Data", type="secondary"): st.rerun()
@@ -118,7 +117,7 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# === ROW 1: ASSIGNMENT BLOCKS ===
+# ROW 1: ASSIGNMENT
 col1, col2 = st.columns(2)
 
 # [BLOCK 1] NEW TASK (BLUE)
@@ -126,11 +125,9 @@ with col1:
     st.markdown("""<div class="dashboard-block theme-blue"><div class="blk-header txt-blue">🚀 New Assignment</div></div>""", unsafe_allow_html=True)
     with st.container():
         u_file = st.file_uploader("Upload New File", key="n_file")
-        
         c1a, c1b = st.columns(2)
         cat = c1a.selectbox("Category", ["Assignment", "Article"], key="cat")
         is_urgent = c1b.checkbox("🔥 High Priority?")
-        
         c2a, c2b = st.columns(2)
         pay = c2a.selectbox("Payment", ["Pending", "Received"], key="pay")
         amt = c2b.number_input("Amount (PKR)", step=100, value=0, key="amt")
@@ -157,7 +154,6 @@ with col2:
     with st.container():
         r_file = st.file_uploader("Upload Revision", key="r_file")
         st.info("ℹ️ Revisions are free of cost. Priority is standard.")
-        
         nxt_rev = REVISION_ORDER[rev_idx]
         st.markdown(f'<div class="assign-badge">Revision For: {nxt_rev}</div>', unsafe_allow_html=True)
         
@@ -173,15 +169,14 @@ with col2:
                 st.rerun()
             else: st.error("No file uploaded.")
 
-# === ROW 2: MANAGEMENT & DATA ===
+# ROW 2: MANAGEMENT
 col3, col4 = st.columns([1, 1.5])
 
-# [BLOCK 3] FINANCE & DELETE (GREEN)
+# [BLOCK 3] FINANCE (GREEN)
 with col3:
     st.markdown("""<div class="dashboard-block theme-green"><div class="blk-header txt-green">⚙️ Task Manager</div></div>""", unsafe_allow_html=True)
     with st.container():
         if not df.empty:
-            # STRICT FILTER: ONLY NEW TASKS
             billable = df[df["Type"] == "New Task"].iloc[::-1]
             if not billable.empty:
                 t_map = {f"{r['Task / File']} ({r['Assigned To']})": i for i, r in billable.iterrows()}
@@ -189,7 +184,6 @@ with col3:
                 idx = t_map[sel]
                 
                 tab_pay, tab_del = st.tabs(["💰 Update Payment", "🗑️ Delete Task"])
-                
                 with tab_pay:
                     st.write("")
                     n_amt = st.number_input("Amount", value=int(df.at[idx, "Amount"]), key="e_amt")
@@ -200,7 +194,6 @@ with col3:
                         conn.update(data=df)
                         st.success("Updated!")
                         st.rerun()
-
                 with tab_del:
                     st.write("")
                     st.error("Danger Zone")
@@ -217,30 +210,19 @@ with col3:
 with col4:
     st.markdown("""<div class="dashboard-block theme-dark"><div class="blk-header txt-white">📋 Smart Database</div></div>""", unsafe_allow_html=True)
     with st.container():
-        # 🔍 SMART SEARCH & FILTER
         c_search, c_filter = st.columns([2, 1])
         search_term = c_search.text_input("🔍 Search File or Person", placeholder="Type to search...")
         filter_status = c_filter.multiselect("Filter Status", ["Pending", "Received"])
         
         if not df.empty:
             view_df = df.iloc[::-1].copy()
-            
-            # Apply Search
             if search_term:
-                view_df = view_df[
-                    view_df['Task / File'].str.contains(search_term, case=False) | 
-                    view_df['Assigned To'].str.contains(search_term, case=False)
-                ]
-            
-            # Apply Filter
+                view_df = view_df[view_df['Task / File'].str.contains(search_term, case=False) | view_df['Assigned To'].str.contains(search_term, case=False)]
             if filter_status:
                 view_df = view_df[view_df['Payment Status'].isin(filter_status)]
             
             st.dataframe(
-                view_df,
-                height=400,
-                use_container_width=True,
-                hide_index=True,
+                view_df, height=400, use_container_width=True, hide_index=True,
                 column_config={
                     "Priority": st.column_config.TextColumn("🔥", width="small"),
                     "Task / File": st.column_config.TextColumn("File Name", width="medium"),
