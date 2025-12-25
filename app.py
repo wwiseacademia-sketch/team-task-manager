@@ -1,59 +1,51 @@
 import streamlit as st
 import pandas as pd
+import altair as alt
 from datetime import datetime
 from streamlit_gsheets import GSheetsConnection
 
 # --- 1. PAGE SETUP ---
-st.set_page_config(page_title="Write Wise Blocks", layout="wide", page_icon="🔲")
+st.set_page_config(page_title="Write Wise Ultimate", layout="wide", page_icon="🚀")
 
-# --- 2. BLOCK STYLE CSS ---
+# --- 2. ULTIMATE BLOCK CSS ---
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
-    html, body, [class*="css"] { font-family: 'Roboto', sans-serif; background-color: #f0f2f6; }
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+    html, body, [class*="css"] { font-family: 'Inter', sans-serif; background-color: #f1f5f9; color: #0f172a; }
     
-    /* REMOVE DEFAULT PADDING */
-    .block-container { padding-top: 2rem; padding-bottom: 2rem; }
+    .block-container { padding-top: 2rem; padding-bottom: 5rem; }
 
-    /* --- THE BLOCK CLASS --- */
+    /* BLOCK CARDS */
     .dashboard-block {
-        border-radius: 12px;
-        padding: 20px;
-        margin-bottom: 20px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        color: #1e293b;
+        background: white; border-radius: 16px; padding: 25px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        margin-bottom: 24px; border: 1px solid #e2e8f0;
+        transition: transform 0.2s;
+    }
+    .dashboard-block:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
+
+    /* COLOR THEMES */
+    .theme-blue { border-top: 5px solid #3b82f6; }   /* New Task */
+    .theme-orange { border-top: 5px solid #f97316; } /* Revision */
+    .theme-green { border-top: 5px solid #22c55e; }  /* Finance */
+    .theme-dark { border-top: 5px solid #334155; background: #1e293b; color: white; } /* Data */
+
+    /* HEADERS */
+    .blk-header { font-size: 1.25rem; font-weight: 800; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+    .txt-blue { color: #1d4ed8; } .txt-orange { color: #c2410c; } .txt-green { color: #15803d; } .txt-white { color: white; }
+
+    /* ASSIGNEE BADGE */
+    .assign-badge {
+        background: #f8fafc; border: 1px dashed #94a3b8; padding: 10px;
+        border-radius: 8px; text-align: center; font-weight: 700; color: #475569;
+        margin: 15px 0;
     }
 
-    /* COLORS FOR BLOCKS */
-    .blk-blue { background-color: #e0f2fe; border: 2px solid #3b82f6; }   /* New Task */
-    .blk-orange { background-color: #ffedd5; border: 2px solid #f97316; } /* Revision */
-    .blk-green { background-color: #dcfce7; border: 2px solid #22c55e; }  /* Payment */
-    .blk-white { background-color: #ffffff; border: 2px solid #cbd5e1; }  /* Logs */
-
-    /* HEADERS INSIDE BLOCKS */
-    .blk-header {
-        font-size: 1.2rem;
-        font-weight: 800;
-        text-transform: uppercase;
-        margin-bottom: 15px;
-        display: flex; align-items: center; gap: 10px;
-    }
-    .txt-blue { color: #1e40af; }
-    .txt-orange { color: #9a3412; }
-    .txt-green { color: #166534; }
-    .txt-dark { color: #334155; }
-
-    /* NEXT PERSON CARD */
-    .assign-card {
-        background: white; padding: 10px; border-radius: 8px;
-        text-align: center; font-weight: bold; font-size: 1.1rem;
-        border: 1px dashed #94a3b8; margin: 15px 0;
-    }
-
-    /* BUTTON STYLES */
-    div.stButton > button {
-        width: 100%; border-radius: 8px; font-weight: bold; border: none; padding: 10px;
-    }
+    /* BUTTONS */
+    div.stButton > button { width: 100%; border-radius: 8px; font-weight: 600; padding: 12px; }
+    
+    /* REMOVE WATERMARKS */
+    #MainMenu {visibility: hidden;} footer {visibility: hidden;}
     </style>
 """, unsafe_allow_html=True)
 
@@ -64,13 +56,17 @@ REVISION_ORDER = ["Muhammad Ahmad", "Mazhar Abbas", "Muhammad Imran"]
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 def get_data():
-    req = ["Task / File", "Type", "Assigned To", "Time", "Work Category", "Amount", "Payment Status"]
+    # Added 'Priority' to required columns
+    req = ["Task / File", "Type", "Assigned To", "Time", "Work Category", "Amount", "Payment Status", "Priority"]
     try:
         df = conn.read(ttl=0)
         for col in req:
             if col not in df.columns: df[col] = "" if col != "Amount" else 0
+        
+        # CLEANING
         df['Type'] = df['Type'].astype(str).str.strip()
         df['Amount'] = pd.to_numeric(df['Amount'], errors='coerce').fillna(0)
+        
         return df.dropna(how="all")
     except: return pd.DataFrame(columns=req)
 
@@ -79,142 +75,174 @@ df = get_data()
 new_idx = len(df[df["Type"] == "New Task"]) % 3
 rev_idx = len(df[df["Type"] == "Revision"]) % 3
 
-# --- 4. SIDEBAR ---
+# --- 4. SIDEBAR ANALYTICS ---
 with st.sidebar:
-    st.header("👥 Team Status")
-    st.caption("NEW TASK TURN")
-    for i, m in enumerate(NEW_TASK_ORDER):
-        st.markdown(f"{'🔵' if i==new_idx else '⚪'} {m}")
+    st.header("📊 Analytics")
     
-    st.write("")
-    st.caption("REVISION TURN")
-    for i, m in enumerate(REVISION_ORDER):
-        st.markdown(f"{'🟠' if i==rev_idx else '⚪'} {m}")
+    if not df.empty:
+        # Chart 1: Workload
+        st.caption("Tasks per Member")
+        chart_data = df['Assigned To'].value_counts().reset_index()
+        chart_data.columns = ['Member', 'Count']
         
-    st.divider()
-    if st.button("🔄 Refresh System"): st.rerun()
+        c1 = alt.Chart(chart_data).mark_arc(innerRadius=40).encode(
+            theta="Count", color=alt.Color("Member", legend=None), tooltip=["Member", "Count"]
+        ).properties(height=200)
+        st.altair_chart(c1, use_container_width=True)
+        
+        # Metrics
+        st.divider()
+        pending = df[df['Payment Status'] == 'Pending']['Amount'].sum()
+        received = df[df['Payment Status'] == 'Received']['Amount'].sum()
+        
+        c_a, c_b = st.columns(2)
+        c_a.metric("Received", f"{received/1000:.1f}k")
+        c_b.metric("Pending", f"{pending/1000:.1f}k", delta_color="inverse")
+        
+    st.write("")
+    if st.button("🔄 Refresh Data", type="secondary"): st.rerun()
 
-# --- 5. MAIN DASHBOARD (BLOCKS LAYOUT) ---
+# --- 5. MAIN DASHBOARD ---
+st.markdown("""
+<div style="margin-bottom:30px;">
+    <h1 style="margin:0; font-size:2.2rem;">Write Wise <span style="color:#3b82f6">Ultimate</span></h1>
+    <div style="color:#64748b; font-size:1rem;">Task Distribution & Financial Command Center</div>
+</div>
+""", unsafe_allow_html=True)
 
-st.title("🔲 Task Command Center")
+# === ROW 1: ASSIGNMENT BLOCKS ===
+col1, col2 = st.columns(2)
 
-# ROW 1: ASSIGNMENT BLOCKS
-c1, c2 = st.columns(2)
-
-# --- BLUE BLOCK: NEW TASK ---
-with c1:
-    st.markdown("""
-    <div class="dashboard-block blk-blue">
-        <div class="blk-header txt-blue">📘 New Assignment Zone</div>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # We put streamlit widgets normally, visually they sit under the colored div header
+# [BLOCK 1] NEW TASK (BLUE)
+with col1:
+    st.markdown("""<div class="dashboard-block theme-blue"><div class="blk-header txt-blue">🚀 New Assignment</div></div>""", unsafe_allow_html=True)
     with st.container():
         u_file = st.file_uploader("Upload New File", key="n_file")
-        col_a, col_b = st.columns(2)
-        cat = col_a.selectbox("Category", ["Assignment", "Article"], key="cat")
-        pay = col_b.selectbox("Payment Status", ["Pending", "Received"], key="pay")
-        amt = st.number_input("Amount (PKR)", step=100, value=0, key="amt")
-
-        nxt = NEW_TASK_ORDER[new_idx]
-        st.markdown(f'<div class="assign-card" style="color:#1e40af">Assigned To: {nxt}</div>', unsafe_allow_html=True)
         
-        if st.button("✅ Assign New Task", type="primary"):
+        c1a, c1b = st.columns(2)
+        cat = c1a.selectbox("Category", ["Assignment", "Article"], key="cat")
+        # 🔥 PRIORITY FEATURE
+        is_urgent = c1b.checkbox("🔥 High Priority?")
+        
+        c2a, c2b = st.columns(2)
+        pay = c2a.selectbox("Payment", ["Pending", "Received"], key="pay")
+        amt = c2b.number_input("Amount (PKR)", step=100, value=0, key="amt")
+        
+        nxt = NEW_TASK_ORDER[new_idx]
+        st.markdown(f'<div class="assign-badge">Assigning To: {nxt}</div>', unsafe_allow_html=True)
+        
+        if st.button("Confirm & Assign", type="primary"):
             if u_file:
                 ts = datetime.now().strftime("%d-%b-%Y %H:%M")
+                prio = "High" if is_urgent else "Normal"
                 new_row = pd.DataFrame([{
                     "Task / File": u_file.name, "Type": "New Task", "Assigned To": nxt,
-                    "Time": ts, "Work Category": cat, "Amount": amt, "Payment Status": pay
+                    "Time": ts, "Work Category": cat, "Amount": amt, "Payment Status": pay, "Priority": prio
                 }])
                 conn.update(data=pd.concat([df, new_row], ignore_index=True))
-                st.toast("Task Assigned!")
+                st.toast("Task Assigned!", icon="✅")
                 st.rerun()
-            else: st.error("No File!")
+            else: st.error("No file uploaded.")
 
-# --- ORANGE BLOCK: REVISION ---
-with c2:
-    st.markdown("""
-    <div class="dashboard-block blk-orange">
-        <div class="blk-header txt-orange">📙 Revision Hub</div>
-    </div>
-    """, unsafe_allow_html=True)
-    
+# [BLOCK 2] REVISION (ORANGE)
+with col2:
+    st.markdown("""<div class="dashboard-block theme-orange"><div class="blk-header txt-orange">↺ Revision Hub</div></div>""", unsafe_allow_html=True)
     with st.container():
-        r_file = st.file_uploader("Upload Revision File", key="r_file")
-        st.info("ℹ️ Revisions are free of cost.")
+        r_file = st.file_uploader("Upload Revision", key="r_file")
+        st.info("ℹ️ Revisions are free of cost. Priority is standard.")
         
         nxt_rev = REVISION_ORDER[rev_idx]
-        st.markdown(f'<div class="assign-card" style="color:#9a3412">Revision For: {nxt_rev}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="assign-badge">Revision For: {nxt_rev}</div>', unsafe_allow_html=True)
         
-        if st.button("🔄 Assign Revision"):
+        if st.button("Assign Revision"):
             if r_file:
                 ts = datetime.now().strftime("%d-%b-%Y %H:%M")
                 new_row = pd.DataFrame([{
                     "Task / File": r_file.name, "Type": "Revision", "Assigned To": nxt_rev,
-                    "Time": ts, "Work Category": "Revision", "Amount": 0, "Payment Status": "N/A"
+                    "Time": ts, "Work Category": "Revision", "Amount": 0, "Payment Status": "N/A", "Priority": "Normal"
                 }])
                 conn.update(data=pd.concat([df, new_row], ignore_index=True))
-                st.toast("Revision Sent!")
+                st.toast("Revision Sent!", icon="🟠")
                 st.rerun()
-            else: st.error("No File!")
+            else: st.error("No file uploaded.")
 
-st.write("") # Spacer
+# === ROW 2: MANAGEMENT & DATA ===
+col3, col4 = st.columns([1, 1.5])
 
-# ROW 2: MANAGEMENT BLOCKS
-c3, c4 = st.columns([1, 1.5])
-
-# --- GREEN BLOCK: FINANCE ---
-with c3:
-    st.markdown("""
-    <div class="dashboard-block blk-green">
-        <div class="blk-header txt-green">💵 Payment Manager</div>
-    </div>
-    """, unsafe_allow_html=True)
-    
+# [BLOCK 3] FINANCE & DELETE (GREEN)
+with col3:
+    st.markdown("""<div class="dashboard-block theme-green"><div class="blk-header txt-green">⚙️ Task Manager</div></div>""", unsafe_allow_html=True)
     with st.container():
         if not df.empty:
-            # Only New Tasks
+            # STRICT FILTER: ONLY NEW TASKS
             billable = df[df["Type"] == "New Task"].iloc[::-1]
             if not billable.empty:
                 t_map = {f"{r['Task / File']} ({r['Assigned To']})": i for i, r in billable.iterrows()}
-                sel = st.selectbox("Select Task to Update", list(t_map.keys()))
+                sel = st.selectbox("Select Task", list(t_map.keys()))
                 idx = t_map[sel]
                 
-                n_amt = st.number_input("Update Amount", value=int(df.at[idx, "Amount"]), key="e_amt")
-                n_st = st.selectbox("Status", ["Pending", "Received"], index=0 if df.at[idx, "Payment Status"]=="Pending" else 1, key="e_st")
+                # Using Tabs for cleaner UI
+                tab_pay, tab_del = st.tabs(["💰 Update Payment", "🗑️ Delete Task"])
                 
-                if st.button("💾 Save Payment Info"):
-                    df.at[idx, "Amount"] = n_amt
-                    df.at[idx, "Payment Status"] = n_st
-                    conn.update(data=df)
-                    st.success("Updated!")
-                    st.rerun()
-            else: st.warning("No billable tasks found.")
-        else: st.warning("No data.")
+                with tab_pay:
+                    st.write("")
+                    n_amt = st.number_input("Amount", value=int(df.at[idx, "Amount"]), key="e_amt")
+                    n_st = st.selectbox("Status", ["Pending", "Received"], index=0 if df.at[idx, "Payment Status"]=="Pending" else 1, key="e_st")
+                    if st.button("Update Info"):
+                        df.at[idx, "Amount"] = n_amt
+                        df.at[idx, "Payment Status"] = n_st
+                        conn.update(data=df)
+                        st.success("Updated!")
+                        st.rerun()
 
-# --- WHITE BLOCK: LOGS ---
-with c4:
-    st.markdown("""
-    <div class="dashboard-block blk-white">
-        <div class="blk-header txt-dark">📋 Activity Database</div>
-    </div>
-    """, unsafe_allow_html=True)
-    
+                with tab_del:
+                    st.write("")
+                    st.error("Danger Zone")
+                    # SAFETY CHECKBOX
+                    confirm = st.checkbox("I confirm I want to delete this task permanently.")
+                    if st.button("Delete Task", type="secondary", disabled=not confirm):
+                        df = df.drop(idx)
+                        conn.update(data=df)
+                        st.success("Task Deleted!")
+                        st.rerun()
+            else: st.warning("No billable tasks.")
+        else: st.info("No data.")
+
+# [BLOCK 4] SMART DATABASE (DARK)
+with col4:
+    st.markdown("""<div class="dashboard-block theme-dark"><div class="blk-header txt-white">📋 Smart Database</div></div>""", unsafe_allow_html=True)
     with st.container():
+        # 🔍 SMART SEARCH & FILTER
+        c_search, c_filter = st.columns([2, 1])
+        search_term = c_search.text_input("🔍 Search File or Person", placeholder="Type to search...")
+        filter_status = c_filter.multiselect("Filter Status", ["Pending", "Received"])
+        
         if not df.empty:
-            p_amt = df[df['Payment Status'] == 'Pending']['Amount'].sum()
-            st.caption(f"Total Pending Amount: Rs {p_amt:,.0f}")
+            view_df = df.iloc[::-1].copy()
             
+            # Apply Search
+            if search_term:
+                view_df = view_df[
+                    view_df['Task / File'].str.contains(search_term, case=False) | 
+                    view_df['Assigned To'].str.contains(search_term, case=False)
+                ]
+            
+            # Apply Filter
+            if filter_status:
+                view_df = view_df[view_df['Payment Status'].isin(filter_status)]
+            
+            # Show Data with Priority Flag
             st.dataframe(
-                df.iloc[::-1],
-                height=300,
+                view_df,
+                height=400,
                 use_container_width=True,
                 hide_index=True,
                 column_config={
-                    "Task / File": st.column_config.TextColumn("File", width="medium"),
+                    "Priority": st.column_config.TextColumn("🔥", width="small"),
+                    "Task / File": st.column_config.TextColumn("File Name", width="medium"),
                     "Type": st.column_config.TextColumn("Type", width="small"),
                     "Amount": st.column_config.NumberColumn("PKR", format="%d"),
+                    "Payment Status": st.column_config.TextColumn("Status", width="small"),
                 }
             )
-        else: st.info("Database Empty.")
+        else: st.write("No records found.")
