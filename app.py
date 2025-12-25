@@ -92,7 +92,6 @@ st.markdown("""
 # --- 3. DATA & LOGIC ---
 NEW_TASK_ORDER = ["Muhammad Imran", "Mazhar Abbas", "Muhammad Ahmad"]
 REVISION_ORDER = ["Muhammad Ahmad", "Mazhar Abbas", "Muhammad Imran"]
-
 AVATAR_COLORS = {"Muhammad Imran": "#3b82f6", "Mazhar Abbas": "#8b5cf6", "Muhammad Ahmad": "#10b981"}
 
 conn = st.connection("gsheets", type=GSheetsConnection)
@@ -219,7 +218,6 @@ with col_left:
         st.write("")
         u_file = st.file_uploader("Drop file here", key=f"k_{st.session_state.f_key}")
         
-        # LOGIC: HIDE PAYMENT IF REVISION
         t_type = st.radio("Cycle Type", ["New Task", "Revision"], horizontal=True)
         st.markdown("---")
         
@@ -229,8 +227,7 @@ with col_left:
             pay_status = row1[1].selectbox("Payment", ["Pending", "Received"])
             amount = st.number_input("Amount (PKR)", step=100, value=0)
         else:
-            # Auto defaults for Revision
-            st.info("ℹ️ Revisions are non-billable. Payment set to 0.")
+            st.info("ℹ️ Revisions are non-billable.")
             work_cat = "Revision"
             pay_status = "N/A"
             amount = 0
@@ -254,46 +251,44 @@ with col_left:
     with tab_update:
         st.write("")
         if not df.empty:
-            rev_df = df.iloc[::-1]
-            opts = [f"{r['Task / File']} ({r['Assigned To']})" for i, r in rev_df.iterrows()]
-            s_task = st.selectbox("Select Task", opts)
-            sel_idx = opts.index(s_task)
-            real_idx = len(df) - 1 - sel_idx
+            # FILTER: ONLY SHOW NEW TASKS (Billable)
+            billable_df = df[df["Type"] == "New Task"].sort_index(ascending=False)
             
-            # Check if selected task is a Revision
-            is_revision_task = df.at[real_idx, "Type"] == "Revision"
-            
-            st.markdown("#### Edit Details")
-            
-            if is_revision_task:
-                st.warning("⚠️ Selected task is a Revision (No Payment).")
-                action = "Replace File" # Force action to file only
-            else:
+            if not billable_df.empty:
+                # Create Dictionary to Map Label -> Real Index
+                task_map = {f"{r['Task / File']} ({r['Assigned To']})": i for i, r in billable_df.iterrows()}
+                
+                s_task = st.selectbox("Select Billable Task", list(task_map.keys()))
+                real_idx = task_map[s_task]
+                
+                st.markdown("#### Edit Details")
                 action = st.radio("Select Action", ["Update Payment", "Replace File"], horizontal=True)
-            
-            if action == "Update Payment":
-                c1, c2 = st.columns(2)
-                curr_amt = int(df.at[real_idx, "Amount"])
-                n_amt = c1.number_input("New Amount", value=curr_amt)
                 
-                curr_st = df.at[real_idx, "Payment Status"]
-                n_st = c2.selectbox("New Status", ["Pending", "Received"], index=0 if curr_st=="Pending" else 1)
-                
-                if st.button("Save Changes"):
-                    df.at[real_idx, "Amount"] = n_amt
-                    df.at[real_idx, "Payment Status"] = n_st
-                    conn.update(data=df)
-                    st.success("Updated!")
-                    st.rerun()
-            elif action == "Replace File":
-                nf = st.file_uploader("New File", key="replace_doc")
-                if st.button("Replace File"):
-                    if nf:
-                        df.at[real_idx, "Task / File"] = nf.name
+                if action == "Update Payment":
+                    c1, c2 = st.columns(2)
+                    curr_amt = int(df.at[real_idx, "Amount"])
+                    n_amt = c1.number_input("New Amount", value=curr_amt)
+                    
+                    curr_st = df.at[real_idx, "Payment Status"]
+                    n_st = c2.selectbox("New Status", ["Pending", "Received"], index=0 if curr_st=="Pending" else 1)
+                    
+                    if st.button("Save Changes"):
+                        df.at[real_idx, "Amount"] = n_amt
+                        df.at[real_idx, "Payment Status"] = n_st
                         conn.update(data=df)
-                        st.success("File Replaced!")
+                        st.success("Payment Updated!")
                         st.rerun()
-        else: st.info("No data to edit.")
+                elif action == "Replace File":
+                    nf = st.file_uploader("New File", key="replace_doc")
+                    if st.button("Replace File"):
+                        if nf:
+                            df.at[real_idx, "Task / File"] = nf.name
+                            conn.update(data=df)
+                            st.success("File Replaced!")
+                            st.rerun()
+            else:
+                st.info("No billable tasks found to update.")
+        else: st.info("No data available.")
         
     st.markdown('</div>', unsafe_allow_html=True)
 
