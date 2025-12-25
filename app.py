@@ -1,106 +1,47 @@
 import streamlit as st
 import pandas as pd
+import altair as alt
 from datetime import datetime
 from streamlit_gsheets import GSheetsConnection
 
 # --- 1. PAGE CONFIGURATION ---
-st.set_page_config(page_title="Write Wise Pro", layout="wide", page_icon="💎")
+st.set_page_config(page_title="Write Wise Ultimate", layout="wide", page_icon="🚀")
 
-# --- 2. ULTRA MODERN CSS (GLASSMORPHISM) ---
+# --- 2. ULTIMATE CSS ---
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+    html, body, [class*="css"] { font-family: 'Inter', sans-serif; color: #1e293b; }
+    .stApp { background-color: #f8fafc; }
 
-    /* GLOBAL THEME */
-    html, body, [class*="css"] {
-        font-family: 'Poppins', sans-serif;
-        color: #2d3748;
-    }
-    .stApp {
-        background-color: #f3f4f6;
-        background-image: radial-gradient(#e2e8f0 1px, transparent 1px);
-        background-size: 20px 20px;
-    }
-
-    /* GLASS CARDS */
-    .glass-card {
-        background: rgba(255, 255, 255, 0.85);
-        backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px);
-        border-radius: 20px;
-        border: 1px solid rgba(255, 255, 255, 0.6);
-        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
-        padding: 24px;
-        margin-bottom: 20px;
-        transition: all 0.3s ease-in-out;
-    }
-    .glass-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.12);
-    }
-
-    /* HEADER */
-    .header-container {
-        display: flex; justify-content: space-between; align-items: center;
-        padding: 10px 10px; margin-bottom: 20px;
-    }
-    .app-title {
-        font-size: 2rem; font-weight: 700;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-        letter-spacing: -1px;
-    }
-    .status-badge {
-        background: #d1fae5; color: #065f46; padding: 6px 16px;
-        border-radius: 50px; font-size: 0.85rem; font-weight: 600;
-        box-shadow: 0 2px 10px rgba(16, 185, 129, 0.2);
-    }
-
-    /* STATS */
-    .stat-box { text-align: center; padding: 15px; }
-    .stat-value { font-size: 2.5rem; font-weight: 700; color: #1a202c; line-height: 1.2; }
-    .stat-label { font-size: 0.85rem; color: #718096; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
-
-    /* HERO ASSIGNEE */
-    .hero-box {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        border-radius: 20px; padding: 30px; color: white; text-align: center;
-        box-shadow: 0 10px 25px rgba(118, 75, 162, 0.3);
-    }
-    .hero-box h2 { color: white; margin: 10px 0 0 0; font-size: 2rem; font-weight: 700; }
-    .hero-box p { color: rgba(255,255,255,0.9); margin: 0; font-weight: 500; }
-
-    /* USERS */
-    .user-row {
-        display: flex; align-items: center; padding: 12px; margin-bottom: 8px;
-        border-radius: 12px; background: white; border: 1px solid transparent; transition: 0.2s;
-    }
-    .user-row.active-user {
-        background: #ebf4ff; border-color: #bee3f8; box-shadow: 0 2px 5px rgba(66, 153, 225, 0.1);
-    }
-    .avatar {
-        width: 35px; height: 35px; border-radius: 50%; display: flex;
-        align-items: center; justify-content: center; font-weight: bold;
-        color: white; margin-right: 12px; font-size: 0.9rem;
+    /* CARDS */
+    .block-card {
+        background: white; border-radius: 12px; padding: 20px;
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+        border: 1px solid #e2e8f0; margin-bottom: 20px;
     }
     
-    /* BUTTONS & INPUTS */
-    div.stButton > button {
-        background: linear-gradient(90deg, #1a202c 0%, #2d3748 100%);
-        color: white; border: none; padding: 12px 24px; border-radius: 12px;
-        font-weight: 600; width: 100%; transition: all 0.3s;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    }
-    div.stButton > button:hover { transform: translateY(-2px); box-shadow: 0 6px 15px rgba(0,0,0,0.2); }
-    .stTextInput > div > div, .stSelectbox > div > div, .stNumberInput > div > div {
-        border-radius: 10px; border: 1px solid #e2e8f0; background-color: white;
-    }
+    /* THEMES */
+    .theme-blue { border-top: 5px solid #3b82f6; }
+    .theme-orange { border-top: 5px solid #f97316; }
+    .theme-green { border-top: 5px solid #10b981; }
+    .theme-dark { border-top: 5px solid #334155; background: #1e293b; color: white; }
+
+    /* HEADER TEXT */
+    .card-header { font-size: 1.1rem; font-weight: 700; margin-bottom: 15px; display: flex; align-items: center; gap: 10px; }
     
-    /* REPORT WIDGET */
-    .report-widget {
-        background: linear-gradient(180deg, #ffffff 0%, #f7fafc 100%);
-        border: 1px solid #e2e8f0; border-radius: 16px; padding: 20px; margin-top: 20px;
-    }
+    /* BADGES */
+    .badge-urgent { background: #fee2e2; color: #dc2626; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; border: 1px solid #fecaca; }
+    .badge-normal { background: #f1f5f9; color: #64748b; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; }
+
+    /* METRICS */
+    .metric-container { display: flex; justify-content: space-between; text-align: center; }
+    .metric-box { background: #f8fafc; padding: 10px; border-radius: 8px; width: 30%; }
+    .metric-val { font-size: 1.2rem; font-weight: 700; color: #0f172a; }
+    .metric-lbl { font-size: 0.7rem; color: #64748b; text-transform: uppercase; }
+
+    /* HIDE DEFAULT */
+    #MainMenu {visibility: hidden;} footer {visibility: hidden;}
     </style>
 """, unsafe_allow_html=True)
 
@@ -108,33 +49,19 @@ st.markdown("""
 NEW_TASK_ORDER = ["Muhammad Imran", "Mazhar Abbas", "Muhammad Ahmad"]
 REVISION_ORDER = ["Muhammad Ahmad", "Mazhar Abbas", "Muhammad Imran"]
 
-AVATAR_COLORS = {
-    "Muhammad Imran": "#3b82f6", 
-    "Mazhar Abbas": "#8b5cf6", 
-    "Muhammad Ahmad": "#10b981"
-}
-
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 def get_data():
-    req = ["Task / File", "Type", "Assigned To", "Time", "Work Category", "Amount", "Payment Status"]
+    req = ["Task / File", "Type", "Assigned To", "Time", "Work Category", "Amount", "Payment Status", "Priority"]
     try:
         df = conn.read(ttl=0)
-        # Check Columns
         for col in req:
-            if col not in df.columns:
-                df[col] = "" if col != "Amount" else 0
+            if col not in df.columns: df[col] = "" if col != "Amount" else 0
         
-        # --- CRITICAL FIX: CLEANING SPACES ---
-        # This line removes spaces like "New Task " -> "New Task"
         df['Type'] = df['Type'].astype(str).str.strip()
-        
-        # Ensure Amount is Number
         df['Amount'] = pd.to_numeric(df['Amount'], errors='coerce').fillna(0)
-        
         return df.dropna(how="all")
-    except:
-        return pd.DataFrame(columns=req)
+    except: return pd.DataFrame(columns=req)
 
 df = get_data()
 
@@ -143,208 +70,193 @@ rev_idx = len(df[df["Type"] == "Revision"]) % 3
 
 # --- 4. SIDEBAR ---
 with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/906/906343.png", width=50)
-    st.markdown("### Team Workflow")
+    st.markdown("### 📊 Dashboard Controls")
     
-    st.markdown("<p style='font-size:0.8rem; color:#a0aec0; margin-bottom:5px; font-weight:600;'>NEW TASK QUEUE</p>", unsafe_allow_html=True)
-    for i, member in enumerate(NEW_TASK_ORDER):
-        is_active = (i == new_idx)
-        initials = "".join([n[0] for n in member.split()[:2]])
-        color = AVATAR_COLORS.get(member, "#cbd5e1")
-        
-        st.markdown(f"""
-        <div class="user-row {'active-user' if is_active else ''}">
-            <div class="avatar" style="background:{color}; box-shadow: 0 4px 10px {color}50;">{initials}</div>
-            <div style="flex-grow:1;">
-                <div style="font-weight:600; font-size:0.9rem;">{member}</div>
-                <div style="font-size:0.75rem; color:{'#3b82f6' if is_active else '#a0aec0'};">{'● Next In Line' if is_active else 'Waiting'}</div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    st.write("")
-    st.markdown("<p style='font-size:0.8rem; color:#a0aec0; margin-bottom:5px; font-weight:600;'>REVISION QUEUE</p>", unsafe_allow_html=True)
-    for i, member in enumerate(REVISION_ORDER):
-        is_active = (i == rev_idx)
-        initials = "".join([n[0] for n in member.split()[:2]])
-        rev_color = "#f59e0b" if is_active else "#cbd5e1"
-        
-        st.markdown(f"""
-        <div class="user-row {'active-user' if is_active else ''}">
-            <div class="avatar" style="background:{rev_color}; box-shadow: 0 4px 10px {rev_color}50;">{initials}</div>
-            <div style="flex-grow:1;">
-                <div style="font-weight:600; font-size:0.9rem;">{member}</div>
-                <div style="font-size:0.75rem; color:{'#f59e0b' if is_active else '#a0aec0'};">{'● Next In Line' if is_active else 'Waiting'}</div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    st.write("")
-    st.markdown("### Financials")
     if not df.empty:
-        try:
-            df['DateObj'] = pd.to_datetime(df['Time'], errors='coerce', dayfirst=True)
-            current_month = datetime.now().month
-            current_year = datetime.now().year
-            monthly_df = df[(df['DateObj'].dt.month == current_month) & (df['DateObj'].dt.year == current_year)]
-            
-            t_tasks = len(monthly_df)
-            t_rec = monthly_df[monthly_df['Payment Status'] == 'Received']['Amount'].sum()
-            t_pen = monthly_df[monthly_df['Payment Status'] == 'Pending']['Amount'].sum()
-            
-            st.markdown(f"""
-            <div class="report-widget">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                    <span style="font-weight:700; color:#2d3748;">{datetime.now().strftime('%B %Y')}</span>
-                    <span style="background:#edf2f7; padding:2px 8px; border-radius:10px; font-size:0.7rem;">REPORT</span>
-                </div>
-                <div style="display:flex; justify-content:space-between; font-size:0.9rem; margin-bottom:5px;">
-                    <span style="color:#718096">Completed Tasks</span>
-                    <span style="font-weight:600">{t_tasks}</span>
-                </div>
-                <div style="height:1px; background:#e2e8f0; margin:10px 0;"></div>
-                <div style="display:flex; justify-content:space-between; font-size:0.9rem; color:#059669;">
-                    <span>Received</span>
-                    <span style="font-weight:700">Rs {t_rec:,.0f}</span>
-                </div>
-                <div style="display:flex; justify-content:space-between; font-size:0.9rem; color:#dc2626; margin-top:5px;">
-                    <span>Pending</span>
-                    <span style="font-weight:700">Rs {t_pen:,.0f}</span>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-        except: pass
+        # VISUAL ANALYTICS
+        st.caption("WORK DISTRIBUTION")
+        chart_data = df['Assigned To'].value_counts().reset_index()
+        chart_data.columns = ['Member', 'Tasks']
         
-    st.write("")
-    if st.button("🔄 Sync System"): st.rerun()
+        c = alt.Chart(chart_data).mark_arc(innerRadius=40).encode(
+            theta=alt.Theta("Tasks", stack=True),
+            color=alt.Color("Member", legend=None),
+            tooltip=["Member", "Tasks"]
+        )
+        st.altair_chart(c, use_container_width=True)
+        
+        st.divider()
+        st.caption("MONTHLY EARNINGS")
+        pending = df[df['Payment Status'] == 'Pending']['Amount'].sum()
+        received = df[df['Payment Status'] == 'Received']['Amount'].sum()
+        
+        col_a, col_b = st.columns(2)
+        col_a.metric("Received", f"{received/1000:.1f}k")
+        col_b.metric("Pending", f"{pending/1000:.1f}k", delta_color="inverse")
 
-# --- 5. MAIN CONTENT ---
+    st.write("")
+    if st.button("🔄 Refresh Data", type="primary"): st.rerun()
+
+# --- 5. MAIN LAYOUT ---
+
+# Header Section
 st.markdown("""
-<div class="header-container">
-    <div class="app-title">WriteWise <span style="font-weight:300; color:#718096;">Distributor</span></div>
-    <div class="status-badge">⚡ System Online</div>
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+    <div>
+        <h1 style="margin:0; font-size:1.8rem;">Write Wise <span style="color:#3b82f6">Ultimate</span></h1>
+        <p style="margin:0; color:#64748b; font-size:0.9rem;">Advanced Task Distribution System</p>
+    </div>
+    <div style="text-align:right;">
+        <span style="background:#dbeafe; color:#1e40af; padding:5px 12px; border-radius:20px; font-weight:600; font-size:0.8rem;">● Live System</span>
+    </div>
 </div>
 """, unsafe_allow_html=True)
 
-c1, c2, c3 = st.columns(3)
-with c1:
-    st.markdown(f"""<div class="glass-card stat-box"><div class="stat-value">{len(df)}</div><div class="stat-label">Total Workflow</div></div>""", unsafe_allow_html=True)
-with c2:
-    pending_amt = df[df['Payment Status'] == 'Pending']['Amount'].sum() if not df.empty else 0
-    st.markdown(f"""<div class="glass-card stat-box"><div class="stat-value" style="color:#ef4444;">{pending_amt:,.0f}</div><div class="stat-label">Pending (PKR)</div></div>""", unsafe_allow_html=True)
-with c3:
-    st.markdown(f"""<div class="glass-card stat-box"><div class="stat-value" style="color:#f59e0b;">{len(df[df["Type"] == "Revision"])}</div><div class="stat-label">Revisions Count</div></div>""", unsafe_allow_html=True)
-
 st.write("")
-col_left, col_right = st.columns([1, 1.8])
-if 'f_key' not in st.session_state: st.session_state.f_key = 0
 
-with col_left:
-    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-    st.markdown("### 🚀 Task Control")
-    
-    tab_assign, tab_update = st.tabs(["New Assignment", "Update / Payments"])
-    
-    with tab_assign:
-        st.write("")
-        u_file = st.file_uploader("Drop file here", key=f"k_{st.session_state.f_key}")
-        
-        # New Logic: Hide payment if Revision
-        t_type = st.radio("Cycle Type", ["New Task", "Revision"], horizontal=True)
-        st.markdown("---")
-        
-        if t_type == "New Task":
-            row1 = st.columns(2)
-            work_cat = row1[0].selectbox("Category", ["Assignment", "Article"])
-            pay_status = row1[1].selectbox("Payment", ["Pending", "Received"])
-            amount = st.number_input("Amount (PKR)", step=100, value=0)
-        else:
-            st.info("ℹ️ Revisions are non-billable.")
-            work_cat = "Revision"
-            pay_status = "N/A"
-            amount = 0
-        
-        nxt = NEW_TASK_ORDER[new_idx] if t_type == "New Task" else REVISION_ORDER[rev_idx]
-        st.markdown(f"""<div class="hero-box"><p>NEXT ASSIGNMENT</p><h2>{nxt}</h2></div>""", unsafe_allow_html=True)
-        
-        if st.button("Confirm & Assign ➝"):
-            if u_file:
-                timestamp = datetime.now().strftime("%d-%b-%Y %H:%M")
-                new_row = pd.DataFrame([{
-                    "Task / File": u_file.name, "Type": t_type, "Assigned To": nxt,
-                    "Time": timestamp, "Work Category": work_cat, "Amount": amount, "Payment Status": pay_status
-                }])
-                conn.update(data=pd.concat([df, new_row], ignore_index=True))
-                st.session_state.f_key += 1
-                st.toast("Task Distributed Successfully!", icon="🚀")
-                st.rerun()
-            else: st.error("Please attach a document.")
+# --- ROW 1: TASK ENTRY ---
+col1, col2 = st.columns(2)
 
-    with tab_update:
-        st.write("")
-        if not df.empty:
-            # STRICT FILTER: Clean data used here ensures 'New Task' is exact
-            billable_df = df[df["Type"] == "New Task"].copy()
-            
-            if not billable_df.empty:
-                # Sort latest first
-                billable_df = billable_df.iloc[::-1]
-                
-                # Create dropdown map
-                task_map = {f"{r['Task / File']} ({r['Assigned To']})": i for i, r in billable_df.iterrows()}
-                
-                s_task = st.selectbox("Select Billable Task", list(task_map.keys()))
-                
-                # Get the real index from original dataframe
-                real_idx = task_map[s_task]
-                
-                st.markdown("#### Edit Details")
-                action = st.radio("Select Action", ["Update Payment", "Replace File"], horizontal=True)
-                
-                if action == "Update Payment":
-                    c1, c2 = st.columns(2)
-                    curr_amt = int(df.at[real_idx, "Amount"])
-                    n_amt = c1.number_input("New Amount", value=curr_amt)
-                    
-                    curr_st = df.at[real_idx, "Payment Status"]
-                    n_st = c2.selectbox("New Status", ["Pending", "Received"], index=0 if curr_st=="Pending" else 1)
-                    
-                    if st.button("Save Changes"):
-                        df.at[real_idx, "Amount"] = n_amt
-                        df.at[real_idx, "Payment Status"] = n_st
-                        conn.update(data=df)
-                        st.success("Payment Updated!")
-                        st.rerun()
-                        
-                elif action == "Replace File":
-                    nf = st.file_uploader("New File", key="replace_doc")
-                    if st.button("Replace File"):
-                        if nf:
-                            df.at[real_idx, "Task / File"] = nf.name
-                            conn.update(data=df)
-                            st.success("File Replaced!")
-                            st.rerun()
-            else:
-                st.info("No billable tasks found.")
-        else: st.info("No data available.")
-        
+# [BLOCK 1] NEW TASK
+with col1:
+    st.markdown('<div class="block-card theme-blue">', unsafe_allow_html=True)
+    st.markdown('<div class="card-header">🚀 New Assignment</div>', unsafe_allow_html=True)
+    
+    u_file = st.file_uploader("Upload File", key="n_file")
+    
+    c1, c2 = st.columns(2)
+    cat = c1.selectbox("Category", ["Assignment", "Article"], key="cat")
+    is_urgent = c2.checkbox("🔥 High Priority?")
+    
+    cc1, cc2 = st.columns(2)
+    pay_st = cc1.selectbox("Payment", ["Pending", "Received"], key="pay")
+    amt = cc2.number_input("Amount", step=100, value=0, key="amt")
+    
+    nxt = NEW_TASK_ORDER[new_idx]
+    
+    st.markdown(f"""
+    <div style="background:#eff6ff; padding:10px; border-radius:8px; margin:15px 0; display:flex; justify-content:space-between; align-items:center;">
+        <span style="font-size:0.8rem; color:#64748b;">NEXT ASSIGNEE</span>
+        <span style="font-weight:700; color:#1e3a8a; font-size:1.1rem;">{nxt}</span>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    if st.button("Confirm & Assign", type="primary"):
+        if u_file:
+            ts = datetime.now().strftime("%d-%b-%Y %H:%M")
+            prio = "High" if is_urgent else "Normal"
+            new_row = pd.DataFrame([{
+                "Task / File": u_file.name, "Type": "New Task", "Assigned To": nxt,
+                "Time": ts, "Work Category": cat, "Amount": amt, "Payment Status": pay_st, "Priority": prio
+            }])
+            conn.update(data=pd.concat([df, new_row], ignore_index=True))
+            st.toast("Task Assigned!", icon="✅")
+            st.rerun()
+        else: st.error("No file uploaded.")
     st.markdown('</div>', unsafe_allow_html=True)
 
-with col_right:
-    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-    st.markdown("### 📋 Activity Logs")
+# [BLOCK 2] REVISION
+with col2:
+    st.markdown('<div class="block-card theme-orange">', unsafe_allow_html=True)
+    st.markdown('<div class="card-header">↺ Revision Hub</div>', unsafe_allow_html=True)
+    
+    r_file = st.file_uploader("Upload Revision", key="r_file")
+    st.caption("ℹ️ Revisions are automatically marked as non-billable.")
+    
+    nxt_rev = REVISION_ORDER[rev_idx]
+    
+    st.markdown(f"""
+    <div style="background:#fff7ed; padding:10px; border-radius:8px; margin:15px 0; display:flex; justify-content:space-between; align-items:center;">
+        <span style="font-size:0.8rem; color:#64748b;">REVISION FOR</span>
+        <span style="font-weight:700; color:#9a3412; font-size:1.1rem;">{nxt_rev}</span>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    if st.button("Assign Revision"):
+        if r_file:
+            ts = datetime.now().strftime("%d-%b-%Y %H:%M")
+            new_row = pd.DataFrame([{
+                "Task / File": r_file.name, "Type": "Revision", "Assigned To": nxt_rev,
+                "Time": ts, "Work Category": "Revision", "Amount": 0, "Payment Status": "N/A", "Priority": "Normal"
+            }])
+            conn.update(data=pd.concat([df, new_row], ignore_index=True))
+            st.toast("Revision Sent!", icon="🟠")
+            st.rerun()
+        else: st.error("No file uploaded.")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# --- ROW 2: MANAGEMENT ---
+col3, col4 = st.columns([1.2, 2])
+
+# [BLOCK 3] FINANCE & EDIT
+with col3:
+    st.markdown('<div class="block-card theme-green">', unsafe_allow_html=True)
+    st.markdown('<div class="card-header">⚙️ Manager (Edit/Delete)</div>', unsafe_allow_html=True)
+    
     if not df.empty:
-        disp_df = df.iloc[::-1].copy()
+        # FILTER ONLY NEW TASKS FOR PAYMENT
+        billable = df[df["Type"] == "New Task"].iloc[::-1]
+        if not billable.empty:
+            t_map = {f"{r['Task / File']} ({r['Assigned To']})": i for i, r in billable.iterrows()}
+            sel = st.selectbox("Select Task", list(t_map.keys()))
+            idx = t_map[sel]
+            
+            tab_pay, tab_del = st.tabs(["Update", "Delete"])
+            
+            with tab_pay:
+                st.write("")
+                n_amt = st.number_input("Amount", value=int(df.at[idx, "Amount"]), key="e_amt")
+                n_st = st.selectbox("Status", ["Pending", "Received"], index=0 if df.at[idx, "Payment Status"]=="Pending" else 1, key="e_st")
+                
+                if st.button("Update Info"):
+                    df.at[idx, "Amount"] = n_amt
+                    df.at[idx, "Payment Status"] = n_st
+                    conn.update(data=df)
+                    st.success("Updated!")
+                    st.rerun()
+
+            with tab_del:
+                st.write("")
+                st.warning("⚠️ This will permanently remove the task.")
+                if st.button("🗑️ Delete Task", type="secondary"):
+                    df = df.drop(idx)
+                    conn.update(data=df)
+                    st.success("Deleted!")
+                    st.rerun()
+        else: st.info("No billable tasks.")
+    else: st.info("No Data.")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# [BLOCK 4] SMART LOGS
+with col4:
+    st.markdown('<div class="block-card theme-dark">', unsafe_allow_html=True)
+    c_head, c_filt = st.columns([2, 1])
+    c_head.markdown('<div style="font-size:1.1rem; font-weight:700; color:white;">📋 Database</div>', unsafe_allow_html=True)
+    
+    search = c_filt.text_input("🔍 Search...", placeholder="Name or File", label_visibility="collapsed")
+    
+    if not df.empty:
+        # FILTER LOGIC
+        view_df = df.iloc[::-1].copy()
+        if search:
+            view_df = view_df[
+                view_df['Task / File'].str.contains(search, case=False) | 
+                view_df['Assigned To'].str.contains(search, case=False)
+            ]
+        
+        # Display with Priority Icons
         st.dataframe(
-            disp_df, hide_index=True, use_container_width=True, height=650,
+            view_df,
+            height=350,
+            use_container_width=True,
+            hide_index=True,
             column_config={
-                "Task / File": st.column_config.TextColumn("Document", width="medium"),
+                "Priority": st.column_config.TextColumn("🔥", width="small"),
+                "Task / File": st.column_config.TextColumn("File", width="medium"),
                 "Type": st.column_config.TextColumn("Type", width="small"),
                 "Amount": st.column_config.NumberColumn("PKR", format="%d"),
-                "Payment Status": st.column_config.TextColumn("Status", width="small"),
-                "Assigned To": st.column_config.TextColumn("User", width="medium"),
-                "Time": st.column_config.TextColumn("Date", width="small"),
+                "Payment Status": st.column_config.TextColumn("Pay", width="small"),
             }
         )
-    else: st.info("System is ready. Add first task.")
+    else: st.write("Empty.")
     st.markdown('</div>', unsafe_allow_html=True)
