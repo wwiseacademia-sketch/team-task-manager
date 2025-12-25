@@ -7,7 +7,7 @@ from streamlit_gsheets import GSheetsConnection
 # --- 1. PAGE SETUP ---
 st.set_page_config(page_title="Write Wise Ultimate", layout="wide", page_icon="🚀")
 
-# --- 2. ULTIMATE BLOCK CSS ---
+# --- 2. CSS STYLING ---
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
@@ -24,11 +24,11 @@ st.markdown("""
     }
     .dashboard-block:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
 
-    /* COLOR THEMES */
-    .theme-blue { border-top: 5px solid #3b82f6; }   /* New Task */
-    .theme-orange { border-top: 5px solid #f97316; } /* Revision */
-    .theme-green { border-top: 5px solid #22c55e; }  /* Finance */
-    .theme-dark { border-top: 5px solid #334155; background: #1e293b; color: white; } /* Data */
+    /* THEMES */
+    .theme-blue { border-top: 5px solid #3b82f6; }
+    .theme-orange { border-top: 5px solid #f97316; }
+    .theme-green { border-top: 5px solid #22c55e; }
+    .theme-dark { border-top: 5px solid #334155; background: #1e293b; color: white; }
 
     /* HEADERS */
     .blk-header { font-size: 1.25rem; font-weight: 800; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
@@ -56,7 +56,6 @@ REVISION_ORDER = ["Muhammad Ahmad", "Mazhar Abbas", "Muhammad Imran"]
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 def get_data():
-    # Added 'Priority' to required columns
     req = ["Task / File", "Type", "Assigned To", "Time", "Work Category", "Amount", "Payment Status", "Priority"]
     try:
         df = conn.read(ttl=0)
@@ -75,29 +74,38 @@ df = get_data()
 new_idx = len(df[df["Type"] == "New Task"]) % 3
 rev_idx = len(df[df["Type"] == "Revision"]) % 3
 
-# --- 4. SIDEBAR ANALYTICS ---
+# --- 4. SIDEBAR ANALYTICS (BAR BLOCKS) ---
 with st.sidebar:
-    st.header("📊 Analytics")
+    st.header("📊 Performance Bars")
     
     if not df.empty:
-        # Chart 1: Workload
-        st.caption("Tasks per Member")
-        chart_data = df['Assigned To'].value_counts().reset_index()
-        chart_data.columns = ['Member', 'Count']
+        # PREPARE DATA FOR BAR CHART
+        # Group by Person AND Type
+        chart_df = df.groupby(['Assigned To', 'Type']).size().reset_index(name='Count')
         
-        c1 = alt.Chart(chart_data).mark_arc(innerRadius=40).encode(
-            theta="Count", color=alt.Color("Member", legend=None), tooltip=["Member", "Count"]
-        ).properties(height=200)
-        st.altair_chart(c1, use_container_width=True)
+        # Create Bar Chart (Blocks)
+        bars = alt.Chart(chart_df).mark_bar(cornerRadiusTopLeft=5, cornerRadiusTopRight=5).encode(
+            x=alt.X('Type', axis=None), # Hide x-axis labels inside groups
+            y=alt.Y('Count', title='Total Tasks'),
+            color=alt.Color('Type', scale=alt.Scale(domain=['New Task', 'Revision'], range=['#3b82f6', '#f97316']), legend=alt.Legend(title=None, orient="bottom")),
+            column=alt.Column('Assigned To', header=alt.Header(title=None, labelFontSize=11, labelFontWeight='bold')),
+            tooltip=['Assigned To', 'Type', 'Count']
+        ).properties(width=50, height=180) # Adjust size
         
-        # Metrics
+        st.altair_chart(bars)
+
+        # FINANCIAL METRICS
         st.divider()
+        st.caption("FINANCIAL OVERVIEW")
         pending = df[df['Payment Status'] == 'Pending']['Amount'].sum()
         received = df[df['Payment Status'] == 'Received']['Amount'].sum()
         
         c_a, c_b = st.columns(2)
         c_a.metric("Received", f"{received/1000:.1f}k")
         c_b.metric("Pending", f"{pending/1000:.1f}k", delta_color="inverse")
+        
+    else:
+        st.info("No data for analytics yet.")
         
     st.write("")
     if st.button("🔄 Refresh Data", type="secondary"): st.rerun()
@@ -121,7 +129,6 @@ with col1:
         
         c1a, c1b = st.columns(2)
         cat = c1a.selectbox("Category", ["Assignment", "Article"], key="cat")
-        # 🔥 PRIORITY FEATURE
         is_urgent = c1b.checkbox("🔥 High Priority?")
         
         c2a, c2b = st.columns(2)
@@ -181,7 +188,6 @@ with col3:
                 sel = st.selectbox("Select Task", list(t_map.keys()))
                 idx = t_map[sel]
                 
-                # Using Tabs for cleaner UI
                 tab_pay, tab_del = st.tabs(["💰 Update Payment", "🗑️ Delete Task"])
                 
                 with tab_pay:
@@ -198,8 +204,7 @@ with col3:
                 with tab_del:
                     st.write("")
                     st.error("Danger Zone")
-                    # SAFETY CHECKBOX
-                    confirm = st.checkbox("I confirm I want to delete this task permanently.")
+                    confirm = st.checkbox("Confirm Deletion?")
                     if st.button("Delete Task", type="secondary", disabled=not confirm):
                         df = df.drop(idx)
                         conn.update(data=df)
@@ -231,7 +236,6 @@ with col4:
             if filter_status:
                 view_df = view_df[view_df['Payment Status'].isin(filter_status)]
             
-            # Show Data with Priority Flag
             st.dataframe(
                 view_df,
                 height=400,
