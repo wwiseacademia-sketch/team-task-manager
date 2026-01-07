@@ -65,13 +65,15 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- 3. DATA & LOGIC ---
+MEMBERS_LIST = ["Muhammad Imran", "Mazhar Abbas", "Muhammad Ahmad"] # List for "Who is adding"
 NEW_TASK_ORDER = ["Muhammad Imran", "Mazhar Abbas", "Muhammad Ahmad"]
 REVISION_ORDER = ["Muhammad Ahmad", "Mazhar Abbas", "Muhammad Imran"]
 
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 def get_data():
-    req = ["Task / File", "Type", "Assigned To", "Time", "Work Category", "Amount", "Payment Status", "Priority"]
+    # Added "Added By" to the requirements
+    req = ["Task / File", "Type", "Assigned To", "Time", "Work Category", "Amount", "Payment Status", "Priority", "Added By"]
     try:
         df = conn.read(ttl=0)
         for col in req:
@@ -104,17 +106,19 @@ with c2:
 st.divider()
 
 # --- 5. MOBILE TABS NAVIGATION ---
-# Using tabs avoids long scrolling on mobile
 tab_assign, tab_db, tab_stats = st.tabs(["➕ Assign", "🗂️ History", "📊 Stats"])
 
 # --- TAB 1: ASSIGNMENT (Unified Form) ---
 with tab_assign:
+    # 1. Who is performing the action?
+    adder_name = st.selectbox("👤 Who is adding this?", MEMBERS_LIST, key="adder")
+    
     # Toggle between New Task and Revision
     task_mode = st.radio("Select Action", ["New Task", "Revision"], horizontal=True, label_visibility="collapsed")
     
     with st.container(border=True):
         if task_mode == "New Task":
-            st.markdown(f'<div class="assign-badge">👤 Assigning to: {current_writer_new}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="assign-badge">👉 Assigning to: {current_writer_new}</div>', unsafe_allow_html=True)
             
             u_file = st.file_uploader("Upload File", key="n_file")
             
@@ -132,7 +136,8 @@ with tab_assign:
                     new_row = pd.DataFrame([{
                         "Task / File": u_file.name, "Type": "New Task", "Assigned To": current_writer_new,
                         "Time": ts, "Work Category": cat, "Amount": amount, 
-                        "Payment Status": pay_status, "Priority": priority
+                        "Payment Status": pay_status, "Priority": priority,
+                        "Added By": adder_name  # Saving who added it
                     }])
                     conn.update(data=pd.concat([df, new_row], ignore_index=True))
                     st.toast(f"Assigned to {current_writer_new}!", icon="✅")
@@ -151,7 +156,8 @@ with tab_assign:
                     new_row = pd.DataFrame([{
                         "Task / File": r_file.name, "Type": "Revision", "Assigned To": current_writer_rev,
                         "Time": ts, "Work Category": "Revision", "Amount": 0, 
-                        "Payment Status": "N/A", "Priority": "Normal"
+                        "Payment Status": "N/A", "Priority": "Normal",
+                        "Added By": adder_name # Saving who added it
                     }])
                     conn.update(data=pd.concat([df, new_row], ignore_index=True))
                     st.toast(f"Revision sent to {current_writer_rev}!", icon="🟠")
@@ -163,59 +169,74 @@ with tab_assign:
 with tab_db:
     st.markdown("### Recent Tasks")
     
-    # Simple Search
-    search = st.text_input("🔍 Search task...", placeholder="File name or Writer")
+    search = st.text_input("🔍 Search task...", placeholder="File, Writer or Adder")
     
     if not df.empty:
-        # Filter Logic
         view_df = df.iloc[::-1].copy() # Show newest first
         if search:
-            view_df = view_df[view_df['Task / File'].str.contains(search, case=False) | view_df['Assigned To'].str.contains(search, case=False)]
+            # Added search capability for "Added By" as well
+            view_df = view_df[
+                view_df['Task / File'].str.contains(search, case=False) | 
+                view_df['Assigned To'].str.contains(search, case=False) |
+                view_df['Added By'].str.contains(search, case=False)
+            ]
         
-        # Mobile Friendly Data Editor
         st.dataframe(
             view_df,
             height=300,
             use_container_width=True,
             hide_index=True,
-            column_order=["Task / File", "Assigned To", "Amount", "Payment Status"],
+            column_order=["Task / File", "Type", "Assigned To", "Added By", "Amount"], # Added Type and Added By to view
             column_config={
                 "Amount": st.column_config.NumberColumn("PKR", format="%d"),
-                "Payment Status": st.column_config.TextColumn("Status"),
             }
         )
         
-        # Edit Section (Collapsed by default to save space)
+        # --- Edit / Delete Section (Updated) ---
         with st.expander("⚙️ Edit / Delete Task"):
-            billable = df[df["Type"] == "New Task"].iloc[::-1]
-            if not billable.empty:
-                t_map = {f"{r['Task / File']} ({r['Assigned To']})": i for i, r in billable.iterrows()}
-                sel_task = st.selectbox("Select Task to Edit", list(t_map.keys()))
+            # Allow selecting ANY task (New Task or Revision)
+            all_tasks = df.iloc[::-1]
+            if not all_tasks.empty:
+                # Map task to index
+                t_map = {f"{r['Type']} - {r['Task / File']} ({r['Assigned To']})": i for i, r in all_tasks.iterrows()}
+                sel_task = st.selectbox("Select Task", list(t_map.keys()))
                 idx = t_map[sel_task]
                 
-                ec1, ec2 = st.columns(2)
-                e_amt = ec1.number_input("Update Amount", value=int(df.at[idx, "Amount"]))
-                e_stat = ec2.selectbox("Update Status", ["Pending", "Received"], index=0 if df.at[idx, "Payment Status"]=="Pending" else 1)
+                st.markdown("---")
+                st.caption(f"Editing: {sel_task}")
                 
-                col_up, col_del = st.columns(2)
-                if col_up.button("Save Changes", use_container_width=True):
-                    df.at[idx, "Amount"] = e_amt
-                    df.at[idx, "Payment Status"] = e_stat
-                    conn.update(data=df)
-                    st.success("Updated!")
-                    st.rerun()
+                # Update Logic (Only for amount/status mostly)
+                col_e1, col_e2 = st.columns(2)
+                new_amt = col_e1.number_input("Edit Amount", value=int(df.at[idx, "Amount"]))
+                new_stat = col_e2.selectbox("Edit Status", ["Pending", "Received", "N/A"], 
+                                          index=["Pending", "Received", "N/A"].index(df.at[idx, "Payment Status"]) if df.at[idx, "Payment Status"] in ["Pending", "Received", "N/A"] else 0)
                 
-                if col_del.button("🗑️ Delete", type="primary", use_container_width=True):
-                    df = df.drop(idx)
+                if st.button("💾 Save Changes", use_container_width=True):
+                    df.at[idx, "Amount"] = new_amt
+                    df.at[idx, "Payment Status"] = new_stat
                     conn.update(data=df)
-                    st.warning("Deleted!")
+                    st.success("Changes Saved!")
                     st.rerun()
+
+                st.markdown("---")
+                # 2. DELETE LOGIC (Password Protected)
+                st.markdown("#### 🗑️ Delete Zone")
+                del_pass = st.text_input("Enter Password to Delete", type="password", placeholder="****")
+                
+                if st.button("Delete This Task", type="primary", use_container_width=True):
+                    if del_pass == "1234":
+                        df = df.drop(idx)
+                        conn.update(data=df)
+                        st.warning("Task Deleted Successfully!")
+                        st.rerun()
+                    else:
+                        st.error("❌ Wrong Password! Deletion failed.")
             else:
-                st.info("No editable tasks found.")
+                st.info("No tasks available to edit/delete.")
     else:
         st.info("Database is empty.")
 
-# --- TAB 3: STATS (Mobile Cards) ---
+# --- TAB 3: STATS ---
 with tab_stats:
     st.markdown("### Team Performance")
     if not df.empty:
@@ -225,7 +246,6 @@ with tab_stats:
             
             with st.container(border=True):
                 st.markdown(f"**{writer}**")
-                # Using columns for mini-stats inside the card
                 sc1, sc2 = st.columns(2)
                 sc1.metric("New Tasks", n_count)
                 sc2.metric("Revisions", r_count)
