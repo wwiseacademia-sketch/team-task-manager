@@ -15,94 +15,33 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 3. UNIVERSAL DATABASE SETUP (Google Sheets + CSV Fallback)
-# IMPORTANT: Agar aapki app Google Sheets use karti hai, toh is section ko edit karein.
-# Nahi toh yeh automatically CSV use kar lega!
-
-# --- OPTION A: Google Sheets (UN-COMMENT lines below if USING GOOGLE SHEETS) ---
-# import gspread
-# from google.oauth2 import service_account
-# 
-# try:
-#     credentials = service_account.Credentials.from_service_account_info(
-#         st.secrets["gcp_service_account"],
-#         scopes=["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-#     )
-#     gc = gspread.authorize(credentials)
-#     SHEET_NAME = "WriteWise Orders" # <-- Aapki sheet ka naam yahan daalein
-#     worksheet = gc.open(SHEET_NAME).sheet1
-#     DB_SOURCE = "Google Sheets"
-# except Exception as e:
-#     st.warning(f"⚠️ Could not connect to Google Sheets: {e}. Using Local CSV as fallback.")
-#     DB_SOURCE = "CSV"
-
-# --- OPTION B: CSV (Default - Agar Google Sheets nahi hai toh yeh use hoga) ---
-# Yahan tak comment karein agar Google Sheets use kar rahe hain
-DB_FILE = "agency_tasks_db.csv"
-DB_SOURCE = "CSV"
+# ==========================================
+# 🛑 DATA CONNECTION SETTINGS
+# ==========================================
+# Yahan par apni purani CSV file ka naam likhein (Agar CSV thi)
+DB_FILE = "agency_tasks_db.csv" 
 
 def load_data():
-    if DB_SOURCE == "Google Sheets":
-        try:
-            data = worksheet.get_all_records()
-            return pd.DataFrame(data)
-        except:
-            return pd.DataFrame(columns=["Task ID", "Date", "Client Name", "Service", "Writer Assigned", "Status", "Is Revision?", "Revenue ($)", "Writer Cost ($)", "Deadline"])
-    else: # CSV
-        if os.path.exists(DB_FILE):
-            return pd.read_csv(DB_FILE)
-        else:
-            df = pd.DataFrame(columns=[
-                "Task ID", "Date", "Client Name", "Service", "Writer Assigned", 
-                "Status", "Is Revision?", "Revenue ($)", "Writer Cost ($)", "Deadline"
-            ])
-            df.to_csv(DB_FILE, index=False)
-            return df
+    if os.path.exists(DB_FILE):
+        return pd.read_csv(DB_FILE)
+    else:
+        df = pd.DataFrame(columns=[
+            "Task ID", "Date", "Client Name", "Service", "Writer Assigned", 
+            "Status", "Is Revision?", "Revenue ($)", "Writer Cost ($)", "Deadline"
+        ])
+        df.to_csv(DB_FILE, index=False)
+        return df
 
 def save_data(df):
-    if DB_SOURCE == "Google Sheets":
-        try:
-            worksheet.clear()
-            worksheet.update([df.columns.values.tolist()] + df.values.tolist())
-        except Exception as e:
-            st.error(f"❌ Failed to save to Google Sheets: {e}")
-    else: # CSV
-        df.to_csv(DB_FILE, index=False)
-
-# 4. Simple Login System
-if "logged_in" not in st.session_state:
-    st.session_state["logged_in"] = False
-
-if not st.session_state["logged_in"]:
-    st.markdown("<h1 style='text-align: center; color: #1e3c72; margin-top: 100px;'>WriteWise Admin CRM 🔒</h1>", unsafe_allow_html=True)
-    
-    col1, col2, col3 = st.columns([1, 1, 1])
-    with col2:
-        with st.form("login_form"):
-            password = st.text_input("Enter Admin Password", type="password")
-            submit = st.form_submit_button("Access Dashboard", use_container_width=True)
-            
-            if submit:
-                if password == "admin123": # <-- CHANGE THIS PASSWORD!
-                    st.session_state["logged_in"] = True
-                    st.rerun()
-                else:
-                    st.error("❌ Incorrect Password!")
-    st.stop()
+    df.to_csv(DB_FILE, index=False)
 
 # ==========================================
-# INSIDE THE CRM (IF LOGGED IN)
+# INSIDE THE CRM (NO PASSWORD)
 # ==========================================
 
 # Sidebar Navigation
 st.sidebar.markdown("## 📊 WriteWise CRM")
-st.sidebar.markdown("Welcome, **Admin**")
 page = st.sidebar.radio("Navigation Menu", ["🏠 Dashboard & Analytics", "📝 Task Manager", "📅 Monthly Reports"])
-
-st.sidebar.markdown("---")
-if st.sidebar.button("🚪 Logout"):
-    st.session_state["logged_in"] = False
-    st.rerun()
 
 # Load Data
 df = load_data()
@@ -117,8 +56,9 @@ if page == "🏠 Dashboard & Analytics":
     if df.empty:
         st.info("No tasks added yet. Go to 'Task Manager' to add your first task.")
     else:
-        df['Revenue ($)'] = pd.to_numeric(df['Revenue ($)'], errors='coerce')
-        df['Writer Cost ($)'] = pd.to_numeric(df['Writer Cost ($)'], errors='coerce')
+        # Convert to numeric to avoid errors
+        df['Revenue ($)'] = pd.to_numeric(df['Revenue ($)'], errors='coerce').fillna(0)
+        df['Writer Cost ($)'] = pd.to_numeric(df['Writer Cost ($)'], errors='coerce').fillna(0)
         
         total_tasks = len(df)
         total_revenue = df["Revenue ($)"].sum()
@@ -214,11 +154,16 @@ elif page == "📅 Monthly Reports":
     if df.empty:
         st.warning("No data available to generate reports.")
     else:
-        df['Date'] = pd.to_datetime(df['Date'])
+        df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
+        
         col1, col2 = st.columns(2)
         with col1:
-            years = df['Date'].dt.year.unique()
-            selected_year = st.selectbox("Select Year", sorted(years, reverse=True))
+            years = df['Date'].dt.year.dropna().unique()
+            if len(years) > 0:
+                selected_year = st.selectbox("Select Year", sorted(years, reverse=True))
+            else:
+                selected_year = datetime.date.today().year
+                st.selectbox("Select Year", [selected_year])
         with col2:
             month_names = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
             selected_month_name = st.selectbox("Select Month", month_names)
