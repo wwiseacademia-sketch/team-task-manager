@@ -1,368 +1,330 @@
+# ---------------------------------
+# WriteWise Pro - v2.0 (Professional)
+# ---------------------------------
+
 import streamlit as st
 import pandas as pd
-import altair as alt
 from datetime import datetime
-from streamlit_gsheets import GSheetsConnection
 
-# --- 1. PAGE CONFIGURATION ---
+# --- Page Configuration (MUST be the first Streamlit command) ---
 st.set_page_config(
-    page_title="WriteWise Dashboard", 
-    layout="wide", # WIDE MODE for Dashboard feel
-    page_icon="⚡"
+    page_title="WriteWise Pro | Task Distributor",
+    page_icon="✍️",
+    layout="wide",
+    initial_sidebar_state="collapsed"
 )
 
-# --- 2. PREMIUM CSS STYLING ---
-st.markdown("""
+# --- Professional Styling (CSS Injection) ---
+# Yeh "Super Pro" look and feel ke liye jadu hai
+def load_custom_styling():
+    st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
-    
-    /* General Body */
-    html, body, [class*="css"] {
-        font-family: 'Outfit', sans-serif;
-        background-color: #f8f9fc;
-        color: #1e293b;
-    }
-    
-    /* Remove Top Padding */
-    .block-container { padding-top: 1.5rem; padding-bottom: 3rem; }
-    
-    /* Hide Default Header/Footer */
-    header, footer {visibility: hidden;}
-    
-    /* DASHBOARD CARDS */
-    .dash-card {
-        background: white;
-        border-radius: 16px;
-        padding: 24px;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
-        border: 1px solid #f1f5f9;
-        transition: transform 0.2s;
-    }
-    .dash-card:hover { transform: translateY(-2px); }
-    
-    /* TOTAL PENDING WIDGET (Gradient) */
-    .money-card {
-        background: linear-gradient(135deg, #0f172a 0%, #334155 100%);
-        color: white;
-        border-radius: 16px;
-        padding: 25px;
-        box-shadow: 0 10px 25px rgba(15, 23, 42, 0.2);
-        text-align: right;
-    }
-    .money-label { font-size: 0.9rem; opacity: 0.8; font-weight: 500; letter-spacing: 0.5px; }
-    .money-value { font-size: 2.2rem; font-weight: 700; margin-top: 5px; }
-    
-    /* WRITER ASSIGNMENT BADGE */
-    .assign-box {
-        background: #eff6ff;
-        border-left: 5px solid #3b82f6;
-        padding: 15px 20px;
-        border-radius: 8px;
-        color: #1e3a8a;
-        font-weight: 600;
-        margin-bottom: 20px;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-    }
-    .rev-box {
-        background: #fff7ed;
-        border-left: 5px solid #f97316;
-        padding: 15px 20px;
-        border-radius: 8px;
-        color: #7c2d12;
-        font-weight: 600;
-        margin-bottom: 20px;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-    }
-    
-    /* CUSTOM BUTTONS */
-    div.stButton > button {
-        border-radius: 8px;
-        font-weight: 600;
-        height: 45px;
-        border: none;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-    }
-    /* Primary Action Button */
-    button[kind="primary"] {
-        background: linear-gradient(to right, #2563eb, #1d4ed8);
-        color: white;
-    }
-    
-    /* TABS Styling */
-    .stTabs [data-baseweb="tab-list"] { gap: 8px; }
-    .stTabs [data-baseweb="tab"] {
-        height: 50px;
-        background-color: white;
-        border-radius: 8px 8px 0 0;
-        border: 1px solid #e2e8f0;
-        border-bottom: none;
-        padding: 0 20px;
-    }
-    .stTabs [aria-selected="true"] {
-        background-color: #fff;
-        border-top: 3px solid #2563eb;
-    }
+        /* --- General Theme & Font --- */
+        .stApp {
+            background-color: #0E1117; /* Dark Background */
+        }
+        
+        /* --- Interactive Tabs --- */
+        button[data-baseweb="tab"] {
+            font-size: 16px;
+            font-weight: 500;
+            background-color: transparent;
+            border-radius: 8px;
+            padding: 10px 15px;
+            margin: 0 5px;
+            transition: transform 0.3s ease, background-color 0.3s ease; /* Smooth animation */
+        }
+        button[data-baseweb="tab"]:hover {
+            transform: scale(1.1); /* Tab ko 11% bada karein */
+            background-color: #262730; /* Hover par halka background */
+        }
+        button[data-baseweb="tab"][aria-selected="true"] {
+            background-color: #0068C9; /* Selected tab ka color */
+            color: white;
+            font-weight: bold;
+        }
+
+        /* --- Custom "Card" for Metrics --- */
+        .metric-card {
+            background-color: #1a1a2e; /* Card ka background color */
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            border: 1px solid #2a2a4a;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .metric-card h3 {
+            font-size: 18px;
+            color: #a0a0b0; /* Label ka color */
+            margin-bottom: 10px;
+        }
+        .metric-card p {
+            font-size: 32px;
+            font-weight: bold;
+            color: #ffffff; /* Value ka color */
+            margin: 0;
+        }
+
+        /* --- Buttons --- */
+        .stButton>button {
+            border-radius: 8px;
+            border: 1px solid #0068C9;
+            background-color: #0068C9;
+            color: white;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        .stButton>button:hover {
+            background-color: #0056a8;
+            border-color: #0056a8;
+        }
+        
     </style>
-""", unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
 
-# --- 3. BACKEND LOGIC ---
-NEW_TASK_ORDER = ["Muhammad Imran", "Mazhar Abbas", "Muhammad Ahmad"]
-REVISION_ORDER = ["Muhammad Ahmad", "Mazhar Abbas", "Muhammad Imran"]
-
-conn = st.connection("gsheets", type=GSheetsConnection)
-
-def get_data():
-    req = ["Task / File", "Type", "Assigned To", "Time", "Work Category", "Amount", "Payment Status", "Priority"]
+# --- Data Loading and Initialization ---
+@st.cache_data(ttl=600)
+def load_data():
     try:
-        df = conn.read(ttl=0)
-        for col in req:
-            if col not in df.columns: df[col] = "" if col != "Amount" else 0
-        df['Type'] = df['Type'].astype(str).str.strip()
-        df['Amount'] = pd.to_numeric(df['Amount'], errors='coerce').fillna(0)
-        return df[req].dropna(how="all")
-    except: return pd.DataFrame(columns=req)
+        df = pd.read_csv("data.csv")
+    except FileNotFoundError:
+        df = pd.DataFrame(columns=[
+            "Task ID", "File Name", "Task Type", "Assigned To", 
+            "Priority", "Payment (PKR)", "Payment Status", "Timestamp"
+        ])
+    return df
 
-df = get_data()
+def save_data(df):
+    df.to_csv("data.csv", index=False)
 
-# Auto-Assign Calculation
-new_idx = len(df[df["Type"] == "New Task"]) % 3
-rev_idx = len(df[df["Type"] == "Revision"]) % 3
-current_writer_new = NEW_TASK_ORDER[new_idx]
-current_writer_rev = REVISION_ORDER[rev_idx]
+# --- Main Application Logic ---
 
-# --- 4. TOP DASHBOARD SECTION ---
-col_brand, col_stats = st.columns([2, 1])
+# Custom styling ko load karein
+load_custom_styling()
 
-with col_brand:
-    st.markdown("## WriteWise <span style='color:#3b82f6'>Pro</span>", unsafe_allow_html=True)
-    st.markdown("**Team Management System** | `v2.0`")
+# Data load karein
+df = load_data()
 
-with col_stats:
-    if not df.empty:
-        pending = df[df['Payment Status'] == 'Pending']['Amount'].sum()
-        st.markdown(f"""
-        <div class="money-card">
-            <div class="money-label">PENDING PAYMENTS</div>
-            <div class="money-value">PKR {pending:,.0f}</div>
-        </div>
-        """, unsafe_allow_html=True)
+# Writers ki list aur rotation order
+WRITERS = ["Muhammad Imran", "Mazhar Abbas", "Muhammad Ahmad"]
+NEW_TASK_ORDER = [WRITERS[0], WRITERS[1], WRITERS[2]]
+REVISION_ORDER = [WRITERS[2], WRITERS[1], WRITERS[0]]
 
-st.write("") # Spacer
+# Title ko behtar andaz mein dikhayein
+st.markdown("<h1 style='text-align: center; color: #FAFAFA;'>✍️ WriteWise Pro - Task Distributor</h1>", unsafe_allow_html=True)
+st.markdown("---")
 
-# --- 5. MAIN NAVIGATION ---
-t_assign, t_dash, t_manage = st.tabs(["🚀 Assignment", "📊 Analytics", "📂 Manage Data"])
 
-# --- TAB 1: ASSIGNMENT ---
-with t_assign:
-    c_form, c_info = st.columns([2, 1]) # Split layout
+# --- Tabs ka Istemal ---
+tab1, tab2, tab3, tab4 = st.tabs([
+    "📈 Dashboard", 
+    "✍️ Task Entry", 
+    "🔍 Records & Payments", 
+    "📊 Monthly Reports"
+])
+
+# == TAB 1: Dashboard =========================================================
+with tab1:
+    st.header("Overall Performance Dashboard")
     
-    with c_form:
-        with st.container(border=True):
-            st.markdown("### 📝 New Entry")
-            mode = st.radio("Type", ["New Task", "Revision"], horizontal=True, label_visibility="collapsed")
-            
-            if mode == "New Task":
-                st.markdown(f"""
-                <div class="assign-box">
-                    <span>NEXT WRITER:</span>
-                    <span style="font-size:1.1rem; text-decoration:underline;">{current_writer_new}</span>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                u_file = st.file_uploader("Upload File", key="n_file")
-                col1, col2 = st.columns(2)
-                cat = col1.selectbox("Category", ["Assignment", "Article"], key="cat")
-                priority = col2.select_slider("Priority", ["Normal", "High"], value="Normal")
-                
-                col3, col4 = st.columns(2)
-                pay_status = col3.selectbox("Payment", ["Pending", "Received"], key="pay")
-                amount = col4.number_input("PKR Amount", step=500, value=0)
-                
-                st.markdown("<br>", unsafe_allow_html=True)
-                if st.button("Confirm Assignment", type="primary", use_container_width=True):
-                    if u_file:
-                        ts = datetime.now().strftime("%d-%b-%Y %H:%M")
-                        new_row = pd.DataFrame([{
-                            "Task / File": u_file.name, "Type": "New Task", "Assigned To": current_writer_new,
-                            "Time": ts, "Work Category": cat, "Amount": amount, 
-                            "Payment Status": pay_status, "Priority": priority
-                        }])
-                        conn.update(data=pd.concat([df, new_row], ignore_index=True))
-                        st.cache_data.clear()
-                        st.success(f"Task Assigned to {current_writer_new}!")
-                        st.rerun()
-                    else:
-                        st.error("⚠️ Upload file first")
-
-            else: # Revision
-                st.markdown(f"""
-                <div class="rev-box">
-                    <span>REVISION FOR:</span>
-                    <span style="font-size:1.1rem; text-decoration:underline;">{current_writer_rev}</span>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                r_file = st.file_uploader("Upload Revision", key="r_file")
-                st.info("Revisions are non-billable.")
-                
-                st.markdown("<br>", unsafe_allow_html=True)
-                if st.button("Send Revision", type="primary", use_container_width=True):
-                    if r_file:
-                        ts = datetime.now().strftime("%d-%b-%Y %H:%M")
-                        new_row = pd.DataFrame([{
-                            "Task / File": r_file.name, "Type": "Revision", "Assigned To": current_writer_rev,
-                            "Time": ts, "Work Category": "Revision", "Amount": 0, 
-                            "Payment Status": "N/A", "Priority": "Normal"
-                        }])
-                        conn.update(data=pd.concat([df, new_row], ignore_index=True))
-                        st.cache_data.clear()
-                        st.success(f"Revision sent to {current_writer_rev}!")
-                        st.rerun()
-                    else:
-                        st.error("⚠️ Upload file first")
-
-    # Side Info Panel
-    with c_info:
-        st.markdown("### 💡 Quick Tips")
-        st.info("**New Task Order:**\nImran → Mazhar → Ahmad")
-        st.warning("**Revision Order:**\nAhmad → Mazhar → Imran")
-        st.caption("Auto-sync is enabled.")
-
-# --- TAB 2: ANALYTICS (DASHBOARD) ---
-with t_dash:
-    if not df.empty:
-        st.markdown("### 📈 Performance Overview")
-        
-        # Prepare Data for Chart
-        chart_data = df.groupby(['Assigned To', 'Type']).size().reset_index(name='Count')
-        
-        # ALTAIR BAR CHART (Professional Look)
-        chart = alt.Chart(chart_data).mark_bar(cornerRadiusTopLeft=5, cornerRadiusTopRight=5).encode(
-            x=alt.X('Assigned To', axis=alt.Axis(labelAngle=0)),
-            y=alt.Y('Count'),
-            color=alt.Color('Type', scale=alt.Scale(domain=['New Task', 'Revision'], range=['#3b82f6', '#f97316'])),
-            tooltip=['Assigned To', 'Type', 'Count']
-        ).properties(
-            height=350
-        ).configure_axis(
-            grid=False,
-            labelFontSize=12,
-            titleFontSize=14
-        ).configure_view(
-            strokeWidth=0
-        )
-        
-        st.altair_chart(chart, use_container_width=True)
-        
-        # Detailed Grid
-        st.markdown("### 🔢 Detailed Breakdown")
-        c_d1, c_d2, c_d3 = st.columns(3)
-        cols = [c_d1, c_d2, c_d3]
-        
-        for i, writer in enumerate(NEW_TASK_ORDER):
-            n_count = len(df[(df['Assigned To'] == writer) & (df['Type'] == 'New Task')])
-            r_count = len(df[(df['Assigned To'] == writer) & (df['Type'] == 'Revision')])
-            
-            with cols[i]:
-                st.markdown(f"""
-                <div class="dash-card">
-                    <h4 style="margin:0; color:#1e293b;">{writer}</h4>
-                    <hr style="margin:10px 0; border-top:1px solid #f1f5f9;">
-                    <div style="display:flex; justify-content:space-between;">
-                        <span style="color:#64748b;">New Tasks</span>
-                        <b style="color:#3b82f6;">{n_count}</b>
-                    </div>
-                    <div style="display:flex; justify-content:space-between; margin-top:5px;">
-                        <span style="color:#64748b;">Revisions</span>
-                        <b style="color:#f97316;">{r_count}</b>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-                
+    if df.empty:
+        st.warning("Koi data mojood nahi. Pehle 'Task Entry' tab se kaam shamil karein.")
     else:
-        st.info("No data available for analytics.")
-        
-    if st.button("🔄 Refresh Analytics"):
-        st.cache_data.clear()
-        st.rerun()
+        # Metrics ko cards mein dikhayein
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.markdown(f"""
+            <div class="metric-card">
+                <h3>Kul Tasks</h3>
+                <p>{len(df)}</p>
+            </div>
+            """, unsafe_allow_html=True)
+        with col2:
+            st.markdown(f"""
+            <div class="metric-card">
+                <h3>Naye Tasks</h3>
+                <p>{len(df[df['Task Type'] == 'New Task'])}</p>
+            </div>
+            """, unsafe_allow_html=True)
+        with col3:
+            st.markdown(f"""
+            <div class="metric-card">
+                <h3>Revisions</h3>
+                <p>{len(df[df['Task Type'] == 'Revision'])}</p>
+            </div>
+            """, unsafe_allow_html=True)
+        with col4:
+            pending_payment = df[df['Payment Status'] == 'Pending']['Payment (PKR)'].sum()
+            st.markdown(f"""
+            <div class="metric-card">
+                <h3>Pending Payments</h3>
+                <p>PKR {pending_payment:,.0f}</p>
+            </div>
+            """, unsafe_allow_html=True)
 
-# --- TAB 3: MANAGE DATA ---
-with t_manage:
-    st.markdown("### 🗂️ Database Records")
-    
-    # Search Bar
-    c_s, c_b = st.columns([3, 1])
-    search = c_s.text_input("Search Records", placeholder="Enter filename or writer...")
-    
-    if not df.empty:
-        view_df = df.iloc[::-1].copy()
-        if search:
-            view_df = view_df[
-                view_df['Task / File'].str.contains(search, case=False) | 
-                view_df['Assigned To'].str.contains(search, case=False)
-            ]
+        st.markdown("---")
         
-        st.dataframe(
-            view_df, 
-            height=300, 
-            use_container_width=True, 
-            hide_index=True,
-            column_order=["Task / File", "Type", "Assigned To", "Amount", "Payment Status"],
-            column_config={
-                "Amount": st.column_config.NumberColumn("PKR", format="%d"),
-                "Payment Status": st.column_config.TextColumn("Status", help="Current payment state")
-            }
-        )
-        
-        # EDIT / DELETE PANEL
-        st.markdown("<br>", unsafe_allow_html=True)
-        with st.container(border=True):
-            st.markdown("#### 🛠️ Modification Panel")
+        # Performance Chart
+        st.subheader("Writer Ki Karkardagi")
+        performance = df['Assigned To'].value_counts().reset_index()
+        performance.columns = ['Writer', 'Total Tasks']
+        st.bar_chart(performance.set_index('Writer'))
+
+# == TAB 2: Task Entry ========================================================
+with tab2:
+    st.header("Naya Kaam Shamil Karein")
+    
+    # Next writer maloom karein
+    last_writer_new = df[df['Task Type'] == 'New Task']['Assigned To'].iloc[-1] if not df[df['Task Type'] == 'New Task'].empty else None
+    last_writer_rev = df[df['Task Type'] == 'Revision']['Assigned To'].iloc[-1] if not df[df['Task Type'] == 'Revision'].empty else None
+
+    def get_next_writer(order, last_writer):
+        if last_writer is None:
+            return order[0]
+        try:
+            last_index = order.index(last_writer)
+            return order[(last_index + 1) % len(order)]
+        except ValueError:
+            return order[0]
+
+    next_new_task_writer = get_next_writer(NEW_TASK_ORDER, last_writer_new)
+    next_revision_writer = get_next_writer(REVISION_ORDER, last_writer_rev)
+    
+    col1, col2 = st.columns([2, 1]) # Form ke liye zyada jaga, side info ke liye kam
+
+    with col1:
+        with st.form("task_form", clear_on_submit=True):
+            task_type = st.selectbox("Task Ki Qisam", ["New Task", "Revision"])
+            file_name = st.text_input("File Ka Naam")
+            priority = st.select_slider("Ahmiyat (Priority)", ["Low", "Normal", "High", "Urgent"])
+            payment = st.number_input("Payment (PKR)", min_value=0, step=100)
             
-            all_tasks = df.iloc[::-1]
-            if not all_tasks.empty:
-                t_map = {f"{r['Type']} | {r['Task / File']} ({r['Assigned To']})": i for i, r in all_tasks.iterrows()}
-                sel_task = st.selectbox("Select Record", list(t_map.keys()))
-                idx = t_map[sel_task]
-                
-                ec1, ec2 = st.columns(2)
-                e_amt = ec1.number_input("Edit Amount", value=int(df.at[idx, "Amount"]))
-                
-                cur_stat = df.at[idx, "Payment Status"]
-                opts = ["Pending", "Received", "N/A"]
-                s_idx = opts.index(cur_stat) if cur_stat in opts else 0
-                e_stat = ec2.selectbox("Edit Status", opts, index=s_idx)
-                
-                if st.button("Save Changes"):
-                    df.at[idx, "Amount"] = e_amt
-                    df.at[idx, "Payment Status"] = e_stat
-                    conn.update(data=df)
-                    st.cache_data.clear()
-                    st.success("Record updated.")
-                    st.rerun()
-                
-                st.divider()
-                
-                # Delete Section
-                with st.form("del_form"):
-                    st.markdown("**🗑️ Delete Record**")
-                    col_p, col_btn = st.columns([3, 1])
-                    d_pass = col_p.text_input("Admin Password", type="password", label_visibility="collapsed", placeholder="Enter Password")
+            submitted = st.form_submit_button("✅ Task Shamil Karein")
+
+            if submitted:
+                if not file_name:
+                    st.error("File ka naam likhna lazmi hai!")
+                else:
+                    new_task_id = df["Task ID"].max() + 1 if not df.empty else 1
+                    assigned_to = next_new_task_writer if task_type == 'New Task' else next_revision_writer
                     
-                    if col_btn.form_submit_button("Delete Permanently", type="primary"):
-                        if d_pass == "1234":
-                            df = df.drop(idx)
-                            conn.update(data=df)
-                            st.cache_data.clear()
-                            st.success("Deleted successfully!")
-                            st.rerun()
-                        else:
-                            st.error("Incorrect Password")
-            else:
-                st.write("No tasks found.")
+                    new_entry = pd.DataFrame([{
+                        "Task ID": new_task_id,
+                        "File Name": file_name,
+                        "Task Type": task_type,
+                        "Assigned To": assigned_to,
+                        "Priority": priority,
+                        "Payment (PKR)": payment,
+                        "Payment Status": "Pending",
+                        "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    }])
+                    
+                    df = pd.concat([df, new_entry], ignore_index=True)
+                    save_data(df)
+                    st.success(f"✅ Kaam '{file_name}' ko {assigned_to} ke liye shamil kar diya gaya hai!")
+
+    with col2:
+        st.subheader("Next Writer Rotation")
+        st.info(f"**Naye Task Ke Liye:** {next_new_task_writer}")
+        st.warning(f"**Revision Ke Liye:** {next_revision_writer}")
+
+
+# == TAB 3: Records & Payments ===============================================
+with tab3:
+    st.header("Tamam Records Aur Payments")
+    
+    if df.empty:
+        st.info("Abhi tak koi record mojood nahi.")
     else:
-        st.write("Database is empty.")
+        st.dataframe(df.sort_values(by="Task ID", ascending=False), use_container_width=True)
+
+        st.markdown("---")
+        st.subheader("Record Mein Tabdeeli Karein")
+
+        task_id_to_edit = st.number_input("Edit Karne Ke Liye Task ID Likhein", min_value=1, format="%d")
+        
+        if task_id_to_edit in df["Task ID"].values:
+            task_data = df[df["Task ID"] == task_id_to_edit].iloc[0]
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                new_payment = st.number_input("Nayi Payment Amount", value=task_data["Payment (PKR)"], key=f"pay_{task_id_to_edit}")
+            with col2:
+                new_status = st.selectbox("Naya Payment Status", ["Pending", "Paid"], index=["Pending", "Paid"].index(task_data["Payment Status"]), key=f"stat_{task_id_to_edit}")
+            
+            if st.button("💾 Update Karein"):
+                df.loc[df["Task ID"] == task_id_to_edit, "Payment (PKR)"] = new_payment
+                df.loc[df["Task ID"] == task_id_to_edit, "Payment Status"] = new_status
+                save_data(df)
+                st.success(f"Task ID {task_id_to_edit} update ho gaya hai.")
+                st.experimental_rerun()
+        else:
+            st.warning("Durust Task ID likhein.")
+
+        with st.expander("❌ Record Delete Karein (Admin Only)"):
+            admin_pass = st.text_input("Admin Password", type="password")
+            task_id_to_delete = st.number_input("Delete Karne Ke Liye Task ID", min_value=1, format="%d")
+            if st.button("🗑️ Delete"):
+                if admin_pass == "YOUR_ADMIN_PASSWORD": # Apna password yahan likhein
+                    if task_id_to_delete in df['Task ID'].values:
+                        df = df[df["Task ID"] != task_id_to_delete]
+                        save_data(df)
+                        st.success(f"Task ID {task_id_to_delete} delete kar diya gaya hai.")
+                        st.experimental_rerun()
+                    else:
+                        st.error("Ghalat Task ID.")
+                else:
+                    st.error("Ghalat Admin Password!")
+
+# == TAB 4: Monthly Reports ==================================================
+with tab4:
+    st.header("Mahana Karkardagi Ki Report")
+    
+    if df.empty:
+        st.info("Koi data mojood nahi, isliye report nahi banayi ja sakti.")
+    else:
+        df['Timestamp'] = pd.to_datetime(df['Timestamp'])
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            available_years = sorted(df['Timestamp'].dt.year.unique(), reverse=True)
+            selected_year = st.selectbox("Saal Chunein", available_years)
+        with col2:
+            available_months = sorted(df[df['Timestamp'].dt.year == selected_year]['Timestamp'].dt.month.unique())
+            month_names = {m: datetime(1900, m, 1).strftime('%B') for m in available_months}
+            selected_month_name = st.selectbox("Mahina Chunein", [month_names[m] for m in available_months])
+            selected_month = [m for m, name in month_names.items() if name == selected_month_name][0]
+
+        if st.button("📊 Report Banayein"):
+            # Data ko month aur year ke hisab se filter karein
+            monthly_df = df[(df['Timestamp'].dt.year == selected_year) & (df['Timestamp'].dt.month == selected_month)]
+            
+            if monthly_df.empty:
+                st.warning(f"{selected_month_name} {selected_year} ke liye koi data nahi hai.")
+            else:
+                st.subheader(f"Summary for {selected_month_name} {selected_year}")
+
+                # Overall Summary
+                total_tasks = len(monthly_df)
+                new_tasks = len(monthly_df[monthly_df['Task Type'] == 'New Task'])
+                revisions = len(monthly_df[monthly_df['Task Type'] == 'Revision'])
+                total_payment = monthly_df['Payment (PKR)'].sum()
+                
+                c1, c2, c3, c4 = st.columns(4)
+                with c1: st.metric("Kul Tasks", total_tasks)
+                with c2: st.metric("Naye Tasks", new_tasks)
+                with c3: st.metric("Revisions", revisions)
+                with c4: st.metric("Kul Kamai (PKR)", f"{total_payment:,.0f}")
+                
+                st.markdown("---")
+                
+                # Writer-wise Summary
+                st.subheader("Writer Ki Mahana Karkardagi")
+                writer_summary = monthly_df.groupby('Assigned To').agg(
+                    New_Tasks=('Task Type', lambda x: (x == 'New Task').sum()),
+                    Revisions=('Task Type', lambda x: (x == 'Revision').sum()),
+                    Total_Earnings_PKR=('Payment (PKR)', 'sum')
+                ).reset_index()
+                
+                st.dataframe(writer_summary, use_container_width=True)
+
