@@ -1,368 +1,262 @@
 import streamlit as st
 import pandas as pd
-import altair as alt
-from datetime import datetime
-from streamlit_gsheets import GSheetsConnection
+import datetime
+import os
 
-# --- 1. PAGE CONFIGURATION ---
-st.set_page_config(
-    page_title="WriteWise Dashboard", 
-    layout="wide", # WIDE MODE for Dashboard feel
-    page_icon="⚡"
-)
+# 1. Page Configuration
+st.set_page_config(page_title="Agency CRM | WriteWise", page_icon="📊", layout="wide")
 
-# --- 2. PREMIUM CSS STYLING ---
+# 2. Modern SaaS CSS
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
-    
-    /* General Body */
-    html, body, [class*="css"] {
-        font-family: 'Outfit', sans-serif;
-        background-color: #f8f9fc;
-        color: #1e293b;
-    }
-    
-    /* Remove Top Padding */
-    .block-container { padding-top: 1.5rem; padding-bottom: 3rem; }
-    
-    /* Hide Default Header/Footer */
-    header, footer {visibility: hidden;}
-    
-    /* DASHBOARD CARDS */
-    .dash-card {
-        background: white;
-        border-radius: 16px;
-        padding: 24px;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
-        border: 1px solid #f1f5f9;
-        transition: transform 0.2s;
-    }
-    .dash-card:hover { transform: translateY(-2px); }
-    
-    /* TOTAL PENDING WIDGET (Gradient) */
-    .money-card {
-        background: linear-gradient(135deg, #0f172a 0%, #334155 100%);
-        color: white;
-        border-radius: 16px;
-        padding: 25px;
-        box-shadow: 0 10px 25px rgba(15, 23, 42, 0.2);
-        text-align: right;
-    }
-    .money-label { font-size: 0.9rem; opacity: 0.8; font-weight: 500; letter-spacing: 0.5px; }
-    .money-value { font-size: 2.2rem; font-weight: 700; margin-top: 5px; }
-    
-    /* WRITER ASSIGNMENT BADGE */
-    .assign-box {
-        background: #eff6ff;
-        border-left: 5px solid #3b82f6;
-        padding: 15px 20px;
-        border-radius: 8px;
-        color: #1e3a8a;
-        font-weight: 600;
-        margin-bottom: 20px;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-    }
-    .rev-box {
-        background: #fff7ed;
-        border-left: 5px solid #f97316;
-        padding: 15px 20px;
-        border-radius: 8px;
-        color: #7c2d12;
-        font-weight: 600;
-        margin-bottom: 20px;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-    }
-    
-    /* CUSTOM BUTTONS */
-    div.stButton > button {
-        border-radius: 8px;
-        font-weight: 600;
-        height: 45px;
-        border: none;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-    }
-    /* Primary Action Button */
-    button[kind="primary"] {
-        background: linear-gradient(to right, #2563eb, #1d4ed8);
-        color: white;
-    }
-    
-    /* TABS Styling */
-    .stTabs [data-baseweb="tab-list"] { gap: 8px; }
-    .stTabs [data-baseweb="tab"] {
-        height: 50px;
-        background-color: white;
-        border-radius: 8px 8px 0 0;
-        border: 1px solid #e2e8f0;
-        border-bottom: none;
-        padding: 0 20px;
-    }
-    .stTabs [aria-selected="true"] {
-        background-color: #fff;
-        border-top: 3px solid #2563eb;
-    }
+    div[data-testid="metric-container"] { background-color: #ffffff; border: 1px solid #e2e8f0; padding: 15px 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border-left: 5px solid #3b82f6; }
+    .crm-title { font-size: 2.5rem; font-weight: 800; color: #0f172a; margin-bottom: 0px; }
+    .crm-subtitle { color: #64748b; font-size: 1.1rem; margin-bottom: 30px; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 3. BACKEND LOGIC ---
-NEW_TASK_ORDER = ["Muhammad Imran", "Mazhar Abbas", "Muhammad Ahmad"]
-REVISION_ORDER = ["Muhammad Ahmad", "Mazhar Abbas", "Muhammad Imran"]
+# 3. UNIVERSAL DATABASE SETUP (Google Sheets + CSV Fallback)
+# IMPORTANT: Agar aapki app Google Sheets use karti hai, toh is section ko edit karein.
+# Nahi toh yeh automatically CSV use kar lega!
 
-conn = st.connection("gsheets", type=GSheetsConnection)
+# --- OPTION A: Google Sheets (UN-COMMENT lines below if USING GOOGLE SHEETS) ---
+# import gspread
+# from google.oauth2 import service_account
+# 
+# try:
+#     credentials = service_account.Credentials.from_service_account_info(
+#         st.secrets["gcp_service_account"],
+#         scopes=["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+#     )
+#     gc = gspread.authorize(credentials)
+#     SHEET_NAME = "WriteWise Orders" # <-- Aapki sheet ka naam yahan daalein
+#     worksheet = gc.open(SHEET_NAME).sheet1
+#     DB_SOURCE = "Google Sheets"
+# except Exception as e:
+#     st.warning(f"⚠️ Could not connect to Google Sheets: {e}. Using Local CSV as fallback.")
+#     DB_SOURCE = "CSV"
 
-def get_data():
-    req = ["Task / File", "Type", "Assigned To", "Time", "Work Category", "Amount", "Payment Status", "Priority"]
-    try:
-        df = conn.read(ttl=0)
-        for col in req:
-            if col not in df.columns: df[col] = "" if col != "Amount" else 0
-        df['Type'] = df['Type'].astype(str).str.strip()
-        df['Amount'] = pd.to_numeric(df['Amount'], errors='coerce').fillna(0)
-        return df[req].dropna(how="all")
-    except: return pd.DataFrame(columns=req)
+# --- OPTION B: CSV (Default - Agar Google Sheets nahi hai toh yeh use hoga) ---
+# Yahan tak comment karein agar Google Sheets use kar rahe hain
+DB_FILE = "agency_tasks_db.csv"
+DB_SOURCE = "CSV"
 
-df = get_data()
+def load_data():
+    if DB_SOURCE == "Google Sheets":
+        try:
+            data = worksheet.get_all_records()
+            return pd.DataFrame(data)
+        except:
+            return pd.DataFrame(columns=["Task ID", "Date", "Client Name", "Service", "Writer Assigned", "Status", "Is Revision?", "Revenue ($)", "Writer Cost ($)", "Deadline"])
+    else: # CSV
+        if os.path.exists(DB_FILE):
+            return pd.read_csv(DB_FILE)
+        else:
+            df = pd.DataFrame(columns=[
+                "Task ID", "Date", "Client Name", "Service", "Writer Assigned", 
+                "Status", "Is Revision?", "Revenue ($)", "Writer Cost ($)", "Deadline"
+            ])
+            df.to_csv(DB_FILE, index=False)
+            return df
 
-# Auto-Assign Calculation
-new_idx = len(df[df["Type"] == "New Task"]) % 3
-rev_idx = len(df[df["Type"] == "Revision"]) % 3
-current_writer_new = NEW_TASK_ORDER[new_idx]
-current_writer_rev = REVISION_ORDER[rev_idx]
+def save_data(df):
+    if DB_SOURCE == "Google Sheets":
+        try:
+            worksheet.clear()
+            worksheet.update([df.columns.values.tolist()] + df.values.tolist())
+        except Exception as e:
+            st.error(f"❌ Failed to save to Google Sheets: {e}")
+    else: # CSV
+        df.to_csv(DB_FILE, index=False)
 
-# --- 4. TOP DASHBOARD SECTION ---
-col_brand, col_stats = st.columns([2, 1])
+# 4. Simple Login System
+if "logged_in" not in st.session_state:
+    st.session_state["logged_in"] = False
 
-with col_brand:
-    st.markdown("## WriteWise <span style='color:#3b82f6'>Pro</span>", unsafe_allow_html=True)
-    st.markdown("**Team Management System** | `v2.0`")
-
-with col_stats:
-    if not df.empty:
-        pending = df[df['Payment Status'] == 'Pending']['Amount'].sum()
-        st.markdown(f"""
-        <div class="money-card">
-            <div class="money-label">PENDING PAYMENTS</div>
-            <div class="money-value">PKR {pending:,.0f}</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-st.write("") # Spacer
-
-# --- 5. MAIN NAVIGATION ---
-t_assign, t_dash, t_manage = st.tabs(["🚀 Assignment", "📊 Analytics", "📂 Manage Data"])
-
-# --- TAB 1: ASSIGNMENT ---
-with t_assign:
-    c_form, c_info = st.columns([2, 1]) # Split layout
+if not st.session_state["logged_in"]:
+    st.markdown("<h1 style='text-align: center; color: #1e3c72; margin-top: 100px;'>WriteWise Admin CRM 🔒</h1>", unsafe_allow_html=True)
     
-    with c_form:
-        with st.container(border=True):
-            st.markdown("### 📝 New Entry")
-            mode = st.radio("Type", ["New Task", "Revision"], horizontal=True, label_visibility="collapsed")
+    col1, col2, col3 = st.columns([1, 1, 1])
+    with col2:
+        with st.form("login_form"):
+            password = st.text_input("Enter Admin Password", type="password")
+            submit = st.form_submit_button("Access Dashboard", use_container_width=True)
             
-            if mode == "New Task":
-                st.markdown(f"""
-                <div class="assign-box">
-                    <span>NEXT WRITER:</span>
-                    <span style="font-size:1.1rem; text-decoration:underline;">{current_writer_new}</span>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                u_file = st.file_uploader("Upload File", key="n_file")
-                col1, col2 = st.columns(2)
-                cat = col1.selectbox("Category", ["Assignment", "Article"], key="cat")
-                priority = col2.select_slider("Priority", ["Normal", "High"], value="Normal")
-                
-                col3, col4 = st.columns(2)
-                pay_status = col3.selectbox("Payment", ["Pending", "Received"], key="pay")
-                amount = col4.number_input("PKR Amount", step=500, value=0)
-                
-                st.markdown("<br>", unsafe_allow_html=True)
-                if st.button("Confirm Assignment", type="primary", use_container_width=True):
-                    if u_file:
-                        ts = datetime.now().strftime("%d-%b-%Y %H:%M")
-                        new_row = pd.DataFrame([{
-                            "Task / File": u_file.name, "Type": "New Task", "Assigned To": current_writer_new,
-                            "Time": ts, "Work Category": cat, "Amount": amount, 
-                            "Payment Status": pay_status, "Priority": priority
-                        }])
-                        conn.update(data=pd.concat([df, new_row], ignore_index=True))
-                        st.cache_data.clear()
-                        st.success(f"Task Assigned to {current_writer_new}!")
-                        st.rerun()
-                    else:
-                        st.error("⚠️ Upload file first")
-
-            else: # Revision
-                st.markdown(f"""
-                <div class="rev-box">
-                    <span>REVISION FOR:</span>
-                    <span style="font-size:1.1rem; text-decoration:underline;">{current_writer_rev}</span>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                r_file = st.file_uploader("Upload Revision", key="r_file")
-                st.info("Revisions are non-billable.")
-                
-                st.markdown("<br>", unsafe_allow_html=True)
-                if st.button("Send Revision", type="primary", use_container_width=True):
-                    if r_file:
-                        ts = datetime.now().strftime("%d-%b-%Y %H:%M")
-                        new_row = pd.DataFrame([{
-                            "Task / File": r_file.name, "Type": "Revision", "Assigned To": current_writer_rev,
-                            "Time": ts, "Work Category": "Revision", "Amount": 0, 
-                            "Payment Status": "N/A", "Priority": "Normal"
-                        }])
-                        conn.update(data=pd.concat([df, new_row], ignore_index=True))
-                        st.cache_data.clear()
-                        st.success(f"Revision sent to {current_writer_rev}!")
-                        st.rerun()
-                    else:
-                        st.error("⚠️ Upload file first")
-
-    # Side Info Panel
-    with c_info:
-        st.markdown("### 💡 Quick Tips")
-        st.info("**New Task Order:**\nImran → Mazhar → Ahmad")
-        st.warning("**Revision Order:**\nAhmad → Mazhar → Imran")
-        st.caption("Auto-sync is enabled.")
-
-# --- TAB 2: ANALYTICS (DASHBOARD) ---
-with t_dash:
-    if not df.empty:
-        st.markdown("### 📈 Performance Overview")
-        
-        # Prepare Data for Chart
-        chart_data = df.groupby(['Assigned To', 'Type']).size().reset_index(name='Count')
-        
-        # ALTAIR BAR CHART (Professional Look)
-        chart = alt.Chart(chart_data).mark_bar(cornerRadiusTopLeft=5, cornerRadiusTopRight=5).encode(
-            x=alt.X('Assigned To', axis=alt.Axis(labelAngle=0)),
-            y=alt.Y('Count'),
-            color=alt.Color('Type', scale=alt.Scale(domain=['New Task', 'Revision'], range=['#3b82f6', '#f97316'])),
-            tooltip=['Assigned To', 'Type', 'Count']
-        ).properties(
-            height=350
-        ).configure_axis(
-            grid=False,
-            labelFontSize=12,
-            titleFontSize=14
-        ).configure_view(
-            strokeWidth=0
-        )
-        
-        st.altair_chart(chart, use_container_width=True)
-        
-        # Detailed Grid
-        st.markdown("### 🔢 Detailed Breakdown")
-        c_d1, c_d2, c_d3 = st.columns(3)
-        cols = [c_d1, c_d2, c_d3]
-        
-        for i, writer in enumerate(NEW_TASK_ORDER):
-            n_count = len(df[(df['Assigned To'] == writer) & (df['Type'] == 'New Task')])
-            r_count = len(df[(df['Assigned To'] == writer) & (df['Type'] == 'Revision')])
-            
-            with cols[i]:
-                st.markdown(f"""
-                <div class="dash-card">
-                    <h4 style="margin:0; color:#1e293b;">{writer}</h4>
-                    <hr style="margin:10px 0; border-top:1px solid #f1f5f9;">
-                    <div style="display:flex; justify-content:space-between;">
-                        <span style="color:#64748b;">New Tasks</span>
-                        <b style="color:#3b82f6;">{n_count}</b>
-                    </div>
-                    <div style="display:flex; justify-content:space-between; margin-top:5px;">
-                        <span style="color:#64748b;">Revisions</span>
-                        <b style="color:#f97316;">{r_count}</b>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-                
-    else:
-        st.info("No data available for analytics.")
-        
-    if st.button("🔄 Refresh Analytics"):
-        st.cache_data.clear()
-        st.rerun()
-
-# --- TAB 3: MANAGE DATA ---
-with t_manage:
-    st.markdown("### 🗂️ Database Records")
-    
-    # Search Bar
-    c_s, c_b = st.columns([3, 1])
-    search = c_s.text_input("Search Records", placeholder="Enter filename or writer...")
-    
-    if not df.empty:
-        view_df = df.iloc[::-1].copy()
-        if search:
-            view_df = view_df[
-                view_df['Task / File'].str.contains(search, case=False) | 
-                view_df['Assigned To'].str.contains(search, case=False)
-            ]
-        
-        st.dataframe(
-            view_df, 
-            height=300, 
-            use_container_width=True, 
-            hide_index=True,
-            column_order=["Task / File", "Type", "Assigned To", "Amount", "Payment Status"],
-            column_config={
-                "Amount": st.column_config.NumberColumn("PKR", format="%d"),
-                "Payment Status": st.column_config.TextColumn("Status", help="Current payment state")
-            }
-        )
-        
-        # EDIT / DELETE PANEL
-        st.markdown("<br>", unsafe_allow_html=True)
-        with st.container(border=True):
-            st.markdown("#### 🛠️ Modification Panel")
-            
-            all_tasks = df.iloc[::-1]
-            if not all_tasks.empty:
-                t_map = {f"{r['Type']} | {r['Task / File']} ({r['Assigned To']})": i for i, r in all_tasks.iterrows()}
-                sel_task = st.selectbox("Select Record", list(t_map.keys()))
-                idx = t_map[sel_task]
-                
-                ec1, ec2 = st.columns(2)
-                e_amt = ec1.number_input("Edit Amount", value=int(df.at[idx, "Amount"]))
-                
-                cur_stat = df.at[idx, "Payment Status"]
-                opts = ["Pending", "Received", "N/A"]
-                s_idx = opts.index(cur_stat) if cur_stat in opts else 0
-                e_stat = ec2.selectbox("Edit Status", opts, index=s_idx)
-                
-                if st.button("Save Changes"):
-                    df.at[idx, "Amount"] = e_amt
-                    df.at[idx, "Payment Status"] = e_stat
-                    conn.update(data=df)
-                    st.cache_data.clear()
-                    st.success("Record updated.")
+            if submit:
+                if password == "admin123": # <-- CHANGE THIS PASSWORD!
+                    st.session_state["logged_in"] = True
                     st.rerun()
-                
-                st.divider()
-                
-                # Delete Section
-                with st.form("del_form"):
-                    st.markdown("**🗑️ Delete Record**")
-                    col_p, col_btn = st.columns([3, 1])
-                    d_pass = col_p.text_input("Admin Password", type="password", label_visibility="collapsed", placeholder="Enter Password")
-                    
-                    if col_btn.form_submit_button("Delete Permanently", type="primary"):
-                        if d_pass == "1234":
-                            df = df.drop(idx)
-                            conn.update(data=df)
-                            st.cache_data.clear()
-                            st.success("Deleted successfully!")
-                            st.rerun()
-                        else:
-                            st.error("Incorrect Password")
-            else:
-                st.write("No tasks found.")
+                else:
+                    st.error("❌ Incorrect Password!")
+    st.stop()
+
+# ==========================================
+# INSIDE THE CRM (IF LOGGED IN)
+# ==========================================
+
+# Sidebar Navigation
+st.sidebar.markdown("## 📊 WriteWise CRM")
+st.sidebar.markdown("Welcome, **Admin**")
+page = st.sidebar.radio("Navigation Menu", ["🏠 Dashboard & Analytics", "📝 Task Manager", "📅 Monthly Reports"])
+
+st.sidebar.markdown("---")
+if st.sidebar.button("🚪 Logout"):
+    st.session_state["logged_in"] = False
+    st.rerun()
+
+# Load Data
+df = load_data()
+
+# ------------------------------------------
+# PAGE 1: DASHBOARD & ANALYTICS
+# ------------------------------------------
+if page == "🏠 Dashboard & Analytics":
+    st.markdown("<h1 class='crm-title'>Agency Overview</h1>", unsafe_allow_html=True)
+    st.markdown("<p class='crm-subtitle'>Real-time tracking of your agency's performance.</p>", unsafe_allow_html=True)
+    
+    if df.empty:
+        st.info("No tasks added yet. Go to 'Task Manager' to add your first task.")
     else:
-        st.write("Database is empty.")
+        df['Revenue ($)'] = pd.to_numeric(df['Revenue ($)'], errors='coerce')
+        df['Writer Cost ($)'] = pd.to_numeric(df['Writer Cost ($)'], errors='coerce')
+        
+        total_tasks = len(df)
+        total_revenue = df["Revenue ($)"].sum()
+        total_cost = df["Writer Cost ($)"].sum()
+        net_profit = total_revenue - total_cost
+        
+        pending_tasks = len(df[df["Status"].isin(["Pending", "In Progress", "In Review"])])
+        total_revisions = len(df[df["Is Revision?"] == "Yes"])
+
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Total Revenue", f"${total_revenue:,.2f}")
+        c2.metric("Net Profit", f"${net_profit:,.2f}")
+        c3.metric("Active/Pending Tasks", pending_tasks)
+        c4.metric("Total Revisions", total_revisions)
+        
+        st.write("---")
+        st.subheader("Recent Activity")
+        st.dataframe(df.tail(5).iloc[::-1], use_container_width=True, hide_index=True)
+
+# ------------------------------------------
+# PAGE 2: TASK MANAGER (Add & Edit)
+# ------------------------------------------
+elif page == "📝 Task Manager":
+    st.markdown("<h1 class='crm-title'>Task Manager</h1>", unsafe_allow_html=True)
+    st.markdown("<p class='crm-subtitle'>Assign tasks, update statuses, and manage your writers.</p>", unsafe_allow_html=True)
+
+    with st.expander("➕ Add New Task", expanded=False):
+        with st.form("add_task_form", clear_on_submit=True):
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                client = st.text_input("Client Name *")
+                service = st.selectbox("Service Type", ["Content Writing", "Academic", "Copywriting", "Resume", "Other"])
+            with col2:
+                writer = st.selectbox("Assign Writer", ["Unassigned", "Sarah Jenkins", "Dr. Robert Chen", "Elena Rodriguez", "David Alaba", "James Sterling"])
+                deadline = st.date_input("Deadline")
+            with col3:
+                revenue = st.number_input("Revenue Charged to Client ($)", min_value=0.0, step=10.0)
+                cost = st.number_input("Cost Paid to Writer ($)", min_value=0.0, step=10.0)
+            
+            is_rev = st.radio("Is this a Revision?", ["No", "Yes"], horizontal=True)
+            
+            if st.form_submit_button("Save Task"):
+                if client == "":
+                    st.error("Client Name is required!")
+                else:
+                    new_task_id = f"WW-{datetime.datetime.now().strftime('%Y%m%d%H%M')}"
+                    new_row = pd.DataFrame([{
+                        "Task ID": new_task_id,
+                        "Date": datetime.date.today().strftime("%Y-%m-%d"),
+                        "Client Name": client,
+                        "Service": service,
+                        "Writer Assigned": writer,
+                        "Status": "Pending",
+                        "Is Revision?": is_rev,
+                        "Revenue ($)": revenue,
+                        "Writer Cost ($)": cost,
+                        "Deadline": deadline.strftime("%Y-%m-%d")
+                    }])
+                    df = pd.concat([df, new_row], ignore_index=True)
+                    save_data(df)
+                    st.success("✅ Task Added Successfully!")
+                    st.rerun()
+
+    st.write("---")
+    st.subheader("Live Task Editor")
+    st.write("You can directly click on the table below to change 'Status', 'Writer', or 'Deadline'.")
+    
+    if not df.empty:
+        edited_df = st.data_editor(
+            df,
+            use_container_width=True,
+            num_rows="dynamic",
+            column_config={
+                "Status": st.column_config.SelectboxColumn("Status", options=["Pending", "In Progress", "In Review", "Completed", "Cancelled"], required=True),
+                "Is Revision?": st.column_config.SelectboxColumn("Is Revision?", options=["No", "Yes"])
+            },
+            hide_index=True
+        )
+        
+        if st.button("💾 Save Table Changes", type="primary"):
+            save_data(edited_df)
+            st.success("Database updated successfully!")
+    else:
+        st.info("No tasks available to edit.")
+
+# ------------------------------------------
+# PAGE 3: MONTHLY REPORTS
+# ------------------------------------------
+elif page == "📅 Monthly Reports":
+    st.markdown("<h1 class='crm-title'>Monthly Generation Report</h1>", unsafe_allow_html=True)
+    st.markdown("<p class='crm-subtitle'>Analyze your monthly performance, revisions, and profits.</p>", unsafe_allow_html=True)
+
+    if df.empty:
+        st.warning("No data available to generate reports.")
+    else:
+        df['Date'] = pd.to_datetime(df['Date'])
+        col1, col2 = st.columns(2)
+        with col1:
+            years = df['Date'].dt.year.unique()
+            selected_year = st.selectbox("Select Year", sorted(years, reverse=True))
+        with col2:
+            month_names = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+            selected_month_name = st.selectbox("Select Month", month_names)
+            selected_month_num = month_names.index(selected_month_name) + 1
+
+        if st.button("📊 Generate Report", type="primary"):
+            mask = (df['Date'].dt.year == selected_year) & (df['Date'].dt.month == selected_month_num)
+            report_df = df[mask]
+            
+            st.write("---")
+            st.markdown(f"### Report for {selected_month_name} {selected_year}")
+            
+            if report_df.empty:
+                st.info(f"No tasks recorded in {selected_month_name} {selected_year}.")
+            else:
+                total_tasks_month = len(report_df)
+                new_tasks = len(report_df[report_df["Is Revision?"] == "No"])
+                rev_tasks = len(report_df[report_df["Is Revision?"] == "Yes"])
+                
+                rev_revenue = pd.to_numeric(report_df["Revenue ($)"], errors='coerce').sum()
+                rev_cost = pd.to_numeric(report_df["Writer Cost ($)"], errors='coerce').sum()
+                rev_profit = rev_revenue - rev_cost
+
+                r1, r2, r3 = st.columns(3)
+                r1.metric("Fresh Tasks", new_tasks)
+                r2.metric("Revisions", rev_tasks, delta=f"{(rev_tasks/total_tasks_month)*100:.1f}%", delta_color="inverse")
+                r3.metric("Monthly Profit", f"${rev_profit:,.2f}")
+                
+                st.write("")
+                st.markdown("#### Detailed Data")
+                display_df = report_df.copy()
+                display_df['Date'] = display_df['Date'].dt.strftime('%Y-%m-%d')
+                st.dataframe(display_df, use_container_width=True, hide_index=True)
+                
+                csv = display_df.to_csv(index=False).encode('utf-8')
+                st.download_button(
+                    label=f"📥 Download {selected_month_name} Report (CSV)",
+                    data=csv,
+                    file_name=f"WriteWise_Report_{selected_month_name}_{selected_year}.csv",
+                    mime="text/csv"
+                )
